@@ -1,7 +1,7 @@
 final: previous:
 {
   falcoBackupDrivePkgs = {
-    haskellOverlay = import ./haskell-overlay.nix;
+    haskellOverlay = final.callPackage ./haskell-overlay.nix {};
 
     haskellPackages =
       previous.haskell.packages.ghc94.extend final.falcoBackupDrivePkgs.haskellOverlay;

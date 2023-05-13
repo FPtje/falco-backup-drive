@@ -18,9 +18,15 @@ executable falco-backup-drive
   main-is:          Main.hs
 
   -- cabal-fmt: expand app -Main
-  other-modules:
+  other-modules:    Drive.MountDrive
 
   -- other-extensions:
-  build-depends:    base ^>=4.17.1.0
+  build-depends:
+    , base          ^>=4.17.1.0
+    , conferer
+    , effectful
+    , effectful-th
+    , text
+
   hs-source-dirs:   app
   default-language: GHC2021
