@@ -17,13 +17,12 @@
 
       packages = {
         falcoBackupDrive = pkgs.falcoBackupDrivePkgs.haskellPackages.falco-backup-drive;
-        falcoBackupDrive-static = pkgs.falcoBackupDrivePkgs.staticHaskellPackages.falco-backup-drive;
         default = self.packages.${system}.falcoBackupDrive-static;
       };
 
       apps.default = {
         type = "app";
-        program = "${self.packages.${system}.falcoBackupDrive-static}/bin/falcoBackupDrive";
+        program = "${self.packages.${system}.falcoBackupDrive}/bin/falco-backup-drive";
       };
 
       devShell = with pkgs.falcoBackupDrivePkgs.haskellPackages; shellFor {
