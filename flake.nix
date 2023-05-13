@@ -30,6 +30,7 @@
         buildInputs = [
           cabal-install
           cabal-fmt
+          fourmolu
           haskell-language-server
         ];
       };
