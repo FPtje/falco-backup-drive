@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -9,11 +10,12 @@
 module Drive.MountDrive (
   MountDrive,
   MountDriveConfig (..),
+  CommandInfo (..),
+  MountingError (..),
+  MountingMode (..),
   isDriveConnected,
   isDriveMounted,
   mountDrive,
-  MountingError (..),
-  MountingMode (..),
   runMountDrive,
   tryMounting,
 ) where
@@ -22,13 +24,14 @@ import Conferer qualified
 import Conferer.FromConfig.Internal qualified as Conferer
 import Conferer.Key.Internal qualified as Conferer
 import Control.Monad (unless, when)
+import Control.Monad.Catch (catchIOError)
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Effectful (Eff, Effect, (:>))
-import Effectful.Dispatch.Dynamic (interpret)
+import Display (Display (..))
+import Effectful (Eff, Effect, IOE, (:>))
+import Effectful.Dispatch.Dynamic (reinterpret)
 import Effectful.Error.Static (Error)
 import Effectful.Error.Static qualified as Error
-import Effectful.FileSystem (FileSystem)
 import Effectful.FileSystem qualified as FileSystem
 import Effectful.Process (Process)
 import Effectful.Process qualified as Process
@@ -48,22 +51,48 @@ data MountDriveConfig = MountDriveConfig
   , mountDirectory :: !FilePath
   , mountingMode :: !MountingMode
   }
-  deriving (Generic, Show)
+  deriving (Generic)
+
+instance Display MountDriveConfig where
+  display config = "Mount disk uuid=" <> display config.driveUuid <> " at " <> display config.mountDirectory
 
 data MountingMode
   = MountWithoutEncryption
   | MountWithPartitionLuks {passphrase :: !Text}
 
-instance Show MountingMode where
-  show MountWithoutEncryption = "MountWithoutEncryption"
-  show MountWithPartitionLuks{} = "MountWithPartitionLuks <hidden>"
+instance Display MountingMode where
+  display MountWithoutEncryption = "MountWithoutEncryption"
+  display MountWithPartitionLuks{} = "MountWithPartitionLuks <hidden>"
 
-data MountingError = MountCommandFailed
+data CommandInfo = CommandInfo
   { command :: String
   , args :: [String]
   , stdout :: String
   , stderr :: String
   }
+
+instance Display CommandInfo where
+  display cmd =
+    display cmd.command
+      <> " "
+      <> display (unwords cmd.args)
+      <> "\n\nstdout: "
+      <> display cmd.stdout
+      <> "\n\nstderr: "
+      <> display cmd.stderr
+
+data MountingError
+  = MountCommandFailed CommandInfo
+  | UnknownCommandError String CommandInfo
+
+instance Display MountingError where
+  display = \case
+    MountCommandFailed cmdInfo -> "Mounting command failed! Command was: " <> display cmdInfo
+    UnknownCommandError err cmdInfo ->
+      "Unknown error running command:\n\n"
+        <> display err
+        <> "\n\nCommand was: "
+        <> display cmdInfo
 
 instance Conferer.FromConfig MountDriveConfig
 
@@ -88,10 +117,10 @@ instance Conferer.DefaultConfig MountDriveConfig where
 makeEffect ''MountDrive
 
 runMountDrive
-  :: (Reader MountDriveConfig :> es, FileSystem :> es, Process :> es, Error MountingError :> es)
+  :: (IOE :> es, Reader MountDriveConfig :> es, Error MountingError :> es)
   => Eff (MountDrive : es) a
   -> Eff es a
-runMountDrive = interpret $ \_ -> \case
+runMountDrive = reinterpret (FileSystem.runFileSystem . Process.runProcess) $ \_ -> \case
   IsDriveConnected -> do
     config <- Reader.ask @MountDriveConfig
     FileSystem.doesPathExist $ driveUuidDiskPath config.driveUuid
@@ -151,9 +180,14 @@ runProcessThrowOnError
 runProcessThrowOnError executable args stdin = do
   (exitCode, stdout, stderr) <-
     Process.readProcessWithExitCode executable args stdin
+      `catchIOError` \err ->
+        Error.throwError $
+          UnknownCommandError (show err) $
+            CommandInfo executable args "" ""
   case exitCode of
     ExitSuccess -> pure ()
-    ExitFailure _code -> Error.throwError $ MountCommandFailed executable args stdout stderr
+    ExitFailure _code ->
+      Error.throwError $ MountCommandFailed $ CommandInfo executable args stdout stderr
 
 driveUuidDiskPath :: Text -> FilePath
 driveUuidDiskPath uuid =

@@ -24,8 +24,10 @@ executable falco-backup-drive
   build-depends:
     , base          ^>=4.17.1.0
     , conferer
+    , display
     , effectful
     , effectful-th
+    , exceptions
     , text
 
   hs-source-dirs:   app
