@@ -18,7 +18,9 @@ executable falco-backup-drive
   main-is:          Main.hs
 
   -- cabal-fmt: expand app -Main
-  other-modules:    Drive.MountDrive
+  other-modules:
+    Config.Drive
+    Drive.MountDrive
 
   -- other-extensions:
   build-depends:

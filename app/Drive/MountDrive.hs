@@ -21,9 +21,7 @@ module Drive.MountDrive (
   blockUntilDiskAvailable,
 ) where
 
-import Conferer qualified
-import Conferer.FromConfig.Internal qualified as Conferer
-import Conferer.Key.Internal qualified as Conferer
+import Config.Drive (MountDriveConfig (..), MountingMode (..))
 import Control.Monad (unless, when)
 import Control.Monad.Catch (catchIOError)
 import Data.Text (Text)
@@ -41,32 +39,12 @@ import Effectful.Process qualified as Process
 import Effectful.Reader.Static (Reader)
 import Effectful.Reader.Static qualified as Reader
 import Effectful.TH (makeEffect)
-import GHC.Generics (Generic)
 import System.Exit (ExitCode (..))
 
 data MountDrive :: Effect where
   IsDriveConnected :: MountDrive m Bool
   IsDriveMounted :: MountDrive m Bool
   MountDrive :: MountDrive m ()
-
-data MountDriveConfig = MountDriveConfig
-  { driveUuid :: Text
-  , mountDirectory :: FilePath
-  , mountingMode :: MountingMode
-  , pollDelayMs :: Int
-  }
-  deriving (Generic)
-
-instance Display MountDriveConfig where
-  display config = "Mount disk uuid=" <> display config.driveUuid <> " at " <> display config.mountDirectory
-
-data MountingMode
-  = MountWithoutEncryption
-  | MountWithPartitionLuks {passphrase :: !Text}
-
-instance Display MountingMode where
-  display MountWithoutEncryption = "MountWithoutEncryption"
-  display MountWithPartitionLuks{} = "MountWithPartitionLuks <hidden>"
 
 data CommandInfo = CommandInfo
   { command :: String
@@ -97,27 +75,6 @@ instance Display MountingError where
         <> display err
         <> "\n\nCommand was: "
         <> display cmdInfo
-
-instance Conferer.FromConfig MountDriveConfig
-
-instance Conferer.FromConfig MountingMode where
-  fromConfig key config = do
-    setting :: String <- Conferer.fetchFromConfigByIsString (key Conferer./. "type") config
-    case setting of
-      "without-encryption" -> pure MountWithoutEncryption
-      "with-partition-luks" -> do
-        passphrase <- Conferer.fetchFromConfigByIsString (key Conferer./. "passphrase") config
-        pure $ MountWithPartitionLuks passphrase
-      _ -> Conferer.throwMissingRequiredKeys @MountingMode [key]
-
-instance Conferer.DefaultConfig MountDriveConfig where
-  configDef =
-    MountDriveConfig
-      { driveUuid = "nope"
-      , mountDirectory = "/mnt"
-      , mountingMode = MountWithoutEncryption
-      , pollDelayMs = 500
-      }
 
 makeEffect ''MountDrive
 
