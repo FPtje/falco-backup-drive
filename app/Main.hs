@@ -7,10 +7,11 @@ import Display (displayString)
 import Drive.MountDrive (
   MountDriveConfig (..),
   MountingError (..),
+  blockUntilDiskAvailable,
   runMountDrive,
-  tryMounting,
  )
 import Effectful (runEff)
+import Effectful.Concurrent qualified as Concurrent
 import Effectful.Error.Static qualified as Error
 import Effectful.Reader.Static qualified as Reader
 
@@ -19,11 +20,13 @@ main = do
   config <- Conferer.mkConfig "falcobackupdrive"
   diskConfig <- Conferer.fetch @MountDriveConfig config
   putStrLn $ displayString diskConfig
+
   eMountError <-
     runEff $
       Error.runErrorNoCallStack @MountingError $
-        Reader.runReader diskConfig $
-          runMountDrive tryMounting
+        Concurrent.runConcurrent $
+          Reader.runReader diskConfig $
+            runMountDrive blockUntilDiskAvailable
 
   case eMountError of
     Left err -> putStrLn $ displayString err

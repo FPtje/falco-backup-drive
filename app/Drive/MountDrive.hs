@@ -18,6 +18,7 @@ module Drive.MountDrive (
   mountDrive,
   runMountDrive,
   tryMounting,
+  blockUntilDiskAvailable,
 ) where
 
 import Conferer qualified
@@ -29,6 +30,8 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Display (Display (..))
 import Effectful (Eff, Effect, IOE, (:>))
+import Effectful.Concurrent (Concurrent)
+import Effectful.Concurrent qualified as Concurrent
 import Effectful.Dispatch.Dynamic (reinterpret)
 import Effectful.Error.Static (Error)
 import Effectful.Error.Static qualified as Error
@@ -47,9 +50,10 @@ data MountDrive :: Effect where
   MountDrive :: MountDrive m ()
 
 data MountDriveConfig = MountDriveConfig
-  { driveUuid :: !Text
-  , mountDirectory :: !FilePath
-  , mountingMode :: !MountingMode
+  { driveUuid :: Text
+  , mountDirectory :: FilePath
+  , mountingMode :: MountingMode
+  , pollDelayMs :: Int
   }
   deriving (Generic)
 
@@ -112,6 +116,7 @@ instance Conferer.DefaultConfig MountDriveConfig where
       { driveUuid = "nope"
       , mountDirectory = "/mnt"
       , mountingMode = MountWithoutEncryption
+      , pollDelayMs = 500
       }
 
 makeEffect ''MountDrive
@@ -170,6 +175,20 @@ tryMounting = do
     mounted <- isDriveMounted
     unless mounted $ do
       mountDrive
+
+blockUntilDiskAvailable
+  :: (Reader MountDriveConfig :> es, Concurrent :> es, MountDrive :> es)
+  => Eff es ()
+blockUntilDiskAvailable = do
+  loopConnected
+  tryMounting
+ where
+  loopConnected = do
+    connected <- isDriveConnected
+    unless connected $ do
+      config <- Reader.ask @MountDriveConfig
+      Concurrent.threadDelay $ config.pollDelayMs * 1000
+      loopConnected
 
 runProcessThrowOnError
   :: (Process :> es, Error MountingError :> es)
