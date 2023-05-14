@@ -1,4 +1,4 @@
-{ lib, callCabal2nix
+{ lib, callCabal2nix, cryptsetup, makeWrapper, rsync
 }:
 let
   src = lib.cleanSourceWith rec {
@@ -26,4 +26,15 @@ let
       ;
   };
 in
-  callCabal2nix "falco-backup-drive" src {}
+  (callCabal2nix "falco-backup-drive" src {}).overrideAttrs (prev: rec {
+    runtimeInputs = [
+      cryptsetup
+      rsync
+    ];
+
+    nativeBuildInputs = [ makeWrapper ];
+
+    postInstall = ''
+      wrapProgram $out/bin/falco-backup-drive --prefix PATH ":" "${lib.makeBinPath runtimeInputs}"
+    '';
+  })

@@ -32,7 +32,7 @@
           cabal-fmt
           fourmolu
           haskell-language-server
-        ];
+        ] ++ pkgs.falcoBackupDrivePkgs.haskellPackages.falco-backup-drive.runtimeInputs;
       };
     }
   );
