@@ -3,6 +3,7 @@
 
 module Main where
 
+import Backup.RSync qualified as RSync
 import Command (CommandError)
 import Command qualified
 import Config.GetConfig qualified as Config
@@ -36,9 +37,12 @@ main = do
         runFailOnError @Secrets.SecretError $
           Command.runCommand $
             Secrets.runSecrets $ do
-              forM_ config.mountBackupDrive $ \backupDriveConfig -> do
+              forM_ config.mountBackupDrive $ \backupDriveConfig ->
                 Reader.runReader backupDriveConfig $
                   runMountDrive blockUntilDiskAvailable
+
+              forM_ config.rsyncBackups $ \rsyncBackupConfig ->
+                Reader.runReader rsyncBackupConfig $ RSync.runRSync RSync.run
 
 -- | Run an effect, and on failure, print the error and exit with failure
 runFailOnError
