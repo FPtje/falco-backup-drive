@@ -9,8 +9,6 @@
 -- | Effect to manage the mounting of a drive
 module Drive.MountDrive (
   MountDrive,
-  CommandInfo (..),
-  MountingError (..),
   isDriveConnected,
   isDriveMounted,
   mountDrive,
@@ -19,12 +17,12 @@ module Drive.MountDrive (
   blockUntilDiskAvailable,
 ) where
 
+import Command (Command, CommandError)
+import Command qualified
 import Config.Drive (MountDriveConfig (..), MountingMode (..))
 import Control.Monad (unless, when)
-import Control.Monad.Catch (catchIOError)
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Display (Display (..))
 import Effectful (Eff, Effect, IOE, (:>))
 import Effectful.Concurrent (Concurrent)
 import Effectful.Concurrent qualified as Concurrent
@@ -32,8 +30,6 @@ import Effectful.Dispatch.Dynamic (reinterpret)
 import Effectful.Error.Static (Error)
 import Effectful.Error.Static qualified as Error
 import Effectful.FileSystem qualified as FileSystem
-import Effectful.Process (Process)
-import Effectful.Process qualified as Process
 import Effectful.Reader.Static (Reader)
 import Effectful.Reader.Static qualified as Reader
 import Effectful.TH (makeEffect)
@@ -46,50 +42,20 @@ data MountDrive :: Effect where
   IsDriveMounted :: MountDrive m Bool
   MountDrive :: MountDrive m ()
 
-data CommandInfo = CommandInfo
-  { command :: String
-  , args :: [String]
-  , stdout :: String
-  , stderr :: String
-  }
-
-instance Display CommandInfo where
-  display cmd =
-    display cmd.command
-      <> " "
-      <> display (unwords cmd.args)
-      <> "\n\nstdout: "
-      <> display cmd.stdout
-      <> "\n\nstderr: "
-      <> display cmd.stderr
-
-data MountingError
-  = MountCommandFailed CommandInfo
-  | UnknownCommandError String CommandInfo
-
-instance Display MountingError where
-  display = \case
-    MountCommandFailed cmdInfo -> "Mounting command failed! Command was: " <> display cmdInfo
-    UnknownCommandError err cmdInfo ->
-      "Unknown error running command:\n\n"
-        <> display err
-        <> "\n\nCommand was: "
-        <> display cmdInfo
-
 makeEffect ''MountDrive
 
 runMountDrive
-  :: (Error.HasCallStack, IOE :> es, Reader MountDriveConfig :> es, Error MountingError :> es, Secrets :> es)
+  :: (Error.HasCallStack, IOE :> es, Reader MountDriveConfig :> es, Secrets :> es, Command :> es, Error CommandError :> es)
   => Eff (MountDrive : es) a
   -> Eff es a
-runMountDrive = reinterpret (FileSystem.runFileSystem . Process.runProcess) $ \_ -> \case
+runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
   IsDriveConnected -> do
     config <- Reader.ask @MountDriveConfig
     FileSystem.doesPathExist $ driveUuidDiskPath config.driveUuid
   IsDriveMounted -> do
     config <- Reader.ask @MountDriveConfig
     (exitCode, _stdout, _stderr) <-
-      Process.readProcessWithExitCode "findmnt" [config.mountDirectory] ""
+      Command.readProcessWithExitCode "findmnt" [config.mountDirectory] ""
 
     case exitCode of
       ExitSuccess -> pure True
@@ -98,7 +64,7 @@ runMountDrive = reinterpret (FileSystem.runFileSystem . Process.runProcess) $ \_
     config <- Reader.ask @MountDriveConfig
     case config.mountingMode of
       MountWithoutEncryption -> do
-        runProcessThrowOnError
+        Command.runProcessThrowOnError
           "sudo"
           [ "mount"
           , "--mkdir"
@@ -108,7 +74,7 @@ runMountDrive = reinterpret (FileSystem.runFileSystem . Process.runProcess) $ \_
           ""
       MountWithPartitionLuks -> do
         encryptionSecret <- Secrets.getSecret "DISK_ENCRYPTION_SECRET"
-        runProcessThrowOnError
+        Command.runProcessThrowOnError
           "sudo"
           [ "cryptsetup"
           , "open"
@@ -117,7 +83,7 @@ runMountDrive = reinterpret (FileSystem.runFileSystem . Process.runProcess) $ \_
           ]
           (Text.unpack $ encryptionSecret.value)
 
-        runProcessThrowOnError
+        Command.runProcessThrowOnError
           "sudo"
           [ "mount"
           , "--mkdir"
@@ -147,24 +113,6 @@ blockUntilDiskAvailable = do
       config <- Reader.ask @MountDriveConfig
       Concurrent.threadDelay $ config.pollDelayMs * 1000
       loopConnected
-
-runProcessThrowOnError
-  :: (Process :> es, Error MountingError :> es)
-  => String
-  -> [String]
-  -> String
-  -> Eff es ()
-runProcessThrowOnError executable args stdin = do
-  (exitCode, stdout, stderr) <-
-    Process.readProcessWithExitCode executable args stdin
-      `catchIOError` \err ->
-        Error.throwError $
-          UnknownCommandError (show err) $
-            CommandInfo executable args "" ""
-  case exitCode of
-    ExitSuccess -> pure ()
-    ExitFailure _code ->
-      Error.throwError $ MountCommandFailed $ CommandInfo executable args stdout stderr
 
 driveUuidDiskPath :: Text -> FilePath
 driveUuidDiskPath uuid =

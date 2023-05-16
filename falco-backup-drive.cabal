@@ -19,6 +19,7 @@ executable falco-backup-drive
 
   -- cabal-fmt: expand app -Main
   other-modules:
+    Command
     Config.Drive
     Config.GetConfig
     Config.RsyncBackup
@@ -36,6 +37,7 @@ executable falco-backup-drive
     , effectful
     , effectful-th
     , exceptions
+    , process
     , text
 
   hs-source-dirs:   app

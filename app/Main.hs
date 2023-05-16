@@ -3,13 +3,14 @@
 
 module Main where
 
+import Command (CommandError)
+import Command qualified
 import Config.GetConfig qualified as Config
 import Config.TopLevel qualified as TopLevel
 import Control.Monad.IO.Class (liftIO)
 import Data.Foldable (forM_)
 import Display (Display)
 import Drive.MountDrive (
-  MountingError (..),
   blockUntilDiskAvailable,
   runMountDrive,
  )
@@ -31,12 +32,13 @@ main = do
 
     Logger.displayInfo config
     Concurrent.runConcurrent $
-      runFailOnError @MountingError $
+      runFailOnError @CommandError $
         runFailOnError @Secrets.SecretError $
-          Secrets.runSecrets $ do
-            forM_ config.mountBackupDrive $ \backupDriveConfig -> do
-              Reader.runReader backupDriveConfig $
-                runMountDrive blockUntilDiskAvailable
+          Command.runCommand $
+            Secrets.runSecrets $ do
+              forM_ config.mountBackupDrive $ \backupDriveConfig -> do
+                Reader.runReader backupDriveConfig $
+                  runMountDrive blockUntilDiskAvailable
 
 -- | Run an effect, and on failure, print the error and exit with failure
 runFailOnError
