@@ -1,0 +1,7 @@
+# Turn on hints that are off by default
+- warn: {name: Use explicit module export list}
+
+
+# Ignore some builtin hints
+- ignore: {name: Use newtype instead of data}
+- ignore: {name: Use const}
