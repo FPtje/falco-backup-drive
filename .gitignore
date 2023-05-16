@@ -1,3 +1,4 @@
 dist-newstyle
 .vscode
 .direnv
+config.json
