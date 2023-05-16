@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -6,9 +7,7 @@ module Config.Drive (
   MountingMode (..),
 ) where
 
-import Conferer qualified
-import Conferer.FromConfig.Internal qualified as Conferer
-import Conferer.Key.Internal qualified as Conferer
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)
 import Display (Display (..))
 import GHC.Generics (Generic)
@@ -19,7 +18,7 @@ data MountDriveConfig = MountDriveConfig
   , mountingMode :: MountingMode
   , pollDelayMs :: Int
   }
-  deriving (Generic)
+  deriving (Generic, FromJSON, ToJSON)
 
 instance Display MountDriveConfig where
   display config =
@@ -35,29 +34,9 @@ instance Display MountDriveConfig where
 
 data MountingMode
   = MountWithoutEncryption
-  | MountWithPartitionLuks {passphrase :: !Text}
+  | MountWithPartitionLuks
+  deriving (Generic, FromJSON, ToJSON)
 
 instance Display MountingMode where
   display MountWithoutEncryption = "mount without encryption"
   display MountWithPartitionLuks{} = "mount with LUKS encryption"
-
-instance Conferer.FromConfig MountDriveConfig
-
-instance Conferer.FromConfig MountingMode where
-  fromConfig key config = do
-    setting :: String <- Conferer.fetchFromConfigByIsString (key Conferer./. "type") config
-    case setting of
-      "without-encryption" -> pure MountWithoutEncryption
-      "with-partition-luks" -> do
-        passphrase <- Conferer.fetchFromConfigByIsString (key Conferer./. "passphrase") config
-        pure $ MountWithPartitionLuks passphrase
-      _ -> Conferer.throwMissingRequiredKeys @MountingMode [key]
-
-instance Conferer.DefaultConfig MountDriveConfig where
-  configDef =
-    MountDriveConfig
-      { driveUuid = ""
-      , mountDirectory = "/mnt"
-      , mountingMode = MountWithoutEncryption
-      , pollDelayMs = 500
-      }

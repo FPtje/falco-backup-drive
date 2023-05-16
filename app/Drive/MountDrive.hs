@@ -9,10 +9,8 @@
 -- | Effect to manage the mounting of a drive
 module Drive.MountDrive (
   MountDrive,
-  MountDriveConfig (..),
   CommandInfo (..),
   MountingError (..),
-  MountingMode (..),
   isDriveConnected,
   isDriveMounted,
   mountDrive,
@@ -39,6 +37,8 @@ import Effectful.Process qualified as Process
 import Effectful.Reader.Static (Reader)
 import Effectful.Reader.Static qualified as Reader
 import Effectful.TH (makeEffect)
+import Secrets (Secrets)
+import Secrets qualified
 import System.Exit (ExitCode (..))
 
 data MountDrive :: Effect where
@@ -79,7 +79,7 @@ instance Display MountingError where
 makeEffect ''MountDrive
 
 runMountDrive
-  :: (IOE :> es, Reader MountDriveConfig :> es, Error MountingError :> es)
+  :: (Error.HasCallStack, IOE :> es, Reader MountDriveConfig :> es, Error MountingError :> es, Secrets :> es)
   => Eff (MountDrive : es) a
   -> Eff es a
 runMountDrive = reinterpret (FileSystem.runFileSystem . Process.runProcess) $ \_ -> \case
@@ -106,7 +106,8 @@ runMountDrive = reinterpret (FileSystem.runFileSystem . Process.runProcess) $ \_
           , config.mountDirectory
           ]
           ""
-      MountWithPartitionLuks passphrase -> do
+      MountWithPartitionLuks -> do
+        encryptionSecret <- Secrets.getSecret "DISK_ENCRYPTION_SECRET"
         runProcessThrowOnError
           "sudo"
           [ "cryptsetup"
@@ -114,7 +115,7 @@ runMountDrive = reinterpret (FileSystem.runFileSystem . Process.runProcess) $ \_
           , driveUuidDiskPath config.driveUuid
           , Text.unpack config.driveUuid
           ]
-          (Text.unpack passphrase)
+          (Text.unpack $ encryptionSecret.value)
 
         runProcessThrowOnError
           "sudo"

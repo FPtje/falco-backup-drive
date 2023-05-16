@@ -20,12 +20,18 @@ executable falco-backup-drive
   -- cabal-fmt: expand app -Main
   other-modules:
     Config.Drive
+    Config.GetConfig
+    Config.RsyncBackup
+    Config.TopLevel
     Drive.MountDrive
+    Logger
+    Secrets
 
   -- other-extensions:
   build-depends:
+    , aeson
     , base          ^>=4.17.1.0
-    , conferer
+    , bytestring
     , display
     , effectful
     , effectful-th
