@@ -8,7 +8,7 @@ module Backup.RSync where
 
 import Command (Command, CommandError)
 import Command qualified
-import Config.RsyncBackup (RsyncBackupConfig (..))
+import Config.Backup.Rsync (RsyncBackupConfig (..))
 import Effectful (Eff, Effect, IOE, (:>))
 import Effectful.Dispatch.Dynamic (reinterpret)
 import Effectful.Error.Static (Error)
@@ -34,6 +34,7 @@ runRSync = reinterpret FileSystem.runFileSystem $ \_ -> \case
     Command.runProcessThrowOnError
       "rsync"
       [ "--archive"
+      , "--fsync"
       , config.backupSource
       , config.backupDestination
       ]
