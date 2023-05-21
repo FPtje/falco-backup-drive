@@ -16,6 +16,7 @@ module Drive.MountDrive (
   runMountDrive,
   tryMounting,
   blockUntilDiskAvailable,
+  blockUntilDiskGone,
 ) where
 
 import Command (Command, CommandError)
@@ -126,6 +127,8 @@ tryMounting = do
     mounted <- isDriveMounted
     unless mounted mount
 
+-- | Waits until the disk is connected. When it is, it mounts it, and returns when the drive is
+-- successfully mounted
 blockUntilDiskAvailable
   :: (Reader MountDriveConfig :> es, Concurrent :> es, MountDrive :> es)
   => Eff es ()
@@ -139,6 +142,17 @@ blockUntilDiskAvailable = do
       config <- Reader.ask @MountDriveConfig
       Concurrent.threadDelay $ config.pollDelayMs * 1000
       loopConnected
+
+-- | Waits until the drive is disconnected, i.e. no longer visible to the system.
+blockUntilDiskGone
+  :: (Reader MountDriveConfig :> es, Concurrent :> es, MountDrive :> es)
+  => Eff es ()
+blockUntilDiskGone = do
+  connected <- isDriveConnected
+  when connected $ do
+    config <- Reader.ask @MountDriveConfig
+    Concurrent.threadDelay $ config.pollDelayMs * 1000
+    blockUntilDiskGone
 
 driveUuidDiskPath :: Text -> FilePath
 driveUuidDiskPath uuid =
