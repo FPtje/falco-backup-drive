@@ -48,7 +48,7 @@ main = do
 
                   ExternalDiskBackup.runExternalDiskBackup $
                     forM_ config.externalDiskBackups $ \externalDiskBackup ->
-                      ExternalDiskBackup.run externalDiskBackup
+                      ExternalDiskBackup.loop externalDiskBackup
 
 -- | Run an effect, and on failure, print the error and exit with failure
 runFailOnError

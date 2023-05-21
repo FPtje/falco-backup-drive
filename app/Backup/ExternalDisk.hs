@@ -18,7 +18,6 @@ import Drive.MountDrive qualified as MountDrive
 import Effectful (Eff, Effect, (:>))
 import Effectful.Concurrent (Concurrent)
 import Effectful.Dispatch.Dynamic (interpret)
-import Effectful.Reader.Static (Reader)
 import Effectful.Reader.Static qualified as Reader
 import Effectful.TH (makeEffect)
 import Logger (Logger)
@@ -81,7 +80,7 @@ runExternalDiskBackup = interpret $ \_ -> \case
 -- | Waits for a disk to appear, mounts it, backs up a directory, unmounts the disk again, waits
 -- until the disk is gone, and then repeats the process
 loop
-  :: (ExternalDiskBackup :> es, Reader ExternalDiskBackupConfig :> es, MountDrive :> es, Concurrent :> es)
+  :: (ExternalDiskBackup :> es, MountDrive :> es, Concurrent :> es)
   => ExternalDiskBackupConfig
   -> Eff es ()
 loop config =
