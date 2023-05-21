@@ -18,6 +18,7 @@ import Effectful.TH (makeEffect)
 data Logger :: Effect where
   LogError :: Text -> Logger m ()
   LogInfo :: Text -> Logger m ()
+  LogTrace :: Text -> Logger m ()
 
 makeEffect ''Logger
 
@@ -26,6 +27,7 @@ logStdout :: IOE :> es => Eff (Logger : es) a -> Eff es a
 logStdout = interpret $ \_ -> \case
   LogError msg -> liftIO $ Text.putStrLn msg
   LogInfo msg -> liftIO $ Text.putStrLn msg
+  LogTrace msg -> liftIO $ Text.putStrLn msg
 
 -- | Helper function to print something that has a Display instance
 displayError :: (Display a, Logger :> es) => a -> Eff es ()
@@ -34,3 +36,7 @@ displayError a = logError $ Display.displayText a
 -- | Helper function to print something that has a Display instance
 displayInfo :: (Display a, Logger :> es) => a -> Eff es ()
 displayInfo a = logInfo $ Display.displayText a
+
+-- | Helper function to print something that has a Display instance
+displayTrace :: (Display a, Logger :> es) => a -> Eff es ()
+displayTrace a = logTrace $ Display.displayText a
