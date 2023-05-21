@@ -3,6 +3,7 @@
 , cryptsetup
 , btrfs-progs
 , exfatprogs
+, pkgs
 , makeWrapper
 , rsync
 }:
@@ -37,6 +38,7 @@ in
     btrfs-progs
     exfatprogs
     cryptsetup
+    pkgs.mount
     rsync
   ];
 
