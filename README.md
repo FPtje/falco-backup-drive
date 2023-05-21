@@ -28,3 +28,12 @@ unmount it again so I can take it out.
 
 Where possible, I prefer using external tools (e.g. `rsync`), as I don't think
 reinventing wheels is an ideal expenditure of my time.
+
+## Support
+
+Since this is an application for personal use, I chose not to support this
+repository. This is also why issues are disabled on the repository. If you would
+like to use this program anyway, please let me know by creating a pull request
+removing this very section. Please write down the motivation for using this
+program in the PR's description. If this program provides enough value for other
+people, I will reconsider this support status.
