@@ -14,6 +14,7 @@ import Effectful.Dispatch.Static (SideEffects (..), StaticRep, evalStaticRep, un
 import Effectful.Error.Static (Error)
 import Effectful.Error.Static qualified as Error
 import GHC.IO.Exception (ExitCode (..))
+import System.Directory (findExecutable)
 import System.Process qualified as Process
 
 data CommandInfo = CommandInfo
@@ -42,6 +43,7 @@ instance Display CommandOutput where
 data CommandError
   = CommandIOError String CommandInfo
   | CommandFailed Int CommandInfo CommandOutput
+  | CommandDoesNotExist String
 
 instance Display CommandError where
   display = \case
@@ -57,6 +59,10 @@ instance Display CommandError where
         <> display commandInfo
         <> "\n"
         <> display commandOutput
+    CommandDoesNotExist command ->
+      "The executable '"
+        <> display command
+        <> "' does not exist. Please make sure the program is installed."
 
 data Command :: Effect
 
@@ -90,9 +96,13 @@ readProcessWithExitCode
   -> [String]
   -> String
   -> Eff es (ExitCode, String, String)
-readProcessWithExitCode executable args stdin =
-  unsafeEff_ (Process.readProcessWithExitCode executable args stdin)
-    `catchIOError` \err ->
-      Error.throwError $
-        CommandIOError (show err) $
-          CommandInfo executable args
+readProcessWithExitCode executable args stdin = do
+  mbExecutablePath <- unsafeEff_ $ findExecutable executable
+  case mbExecutablePath of
+    Nothing -> Error.throwError $ CommandDoesNotExist executable
+    Just executablePath ->
+      unsafeEff_ (Process.readProcessWithExitCode executablePath args stdin)
+        `catchIOError` \err ->
+          Error.throwError $
+            CommandIOError (show err) $
+              CommandInfo executable args

@@ -34,6 +34,7 @@ executable falco-backup-drive
     , aeson
     , base          ^>=4.17.1.0
     , bytestring
+    , directory
     , display
     , effectful
     , effectful-th
