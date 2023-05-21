@@ -60,7 +60,7 @@ runFailOnError eff = do
   eError <- Error.runError @e eff
   case eError of
     Left (callstack, err) -> do
-      Logger.displayInfo $ Error.prettyCallStack callstack
-      Logger.displayInfo err
+      Logger.displayError $ Error.prettyCallStack callstack
+      Logger.displayError err
       liftIO exitFailure
     Right res -> pure res
