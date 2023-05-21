@@ -11,7 +11,8 @@ module Drive.MountDrive (
   MountDrive,
   isDriveConnected,
   isDriveMounted,
-  mountDrive,
+  mount,
+  unmount,
   runMountDrive,
   tryMounting,
   blockUntilDiskAvailable,
@@ -40,7 +41,8 @@ import System.Exit (ExitCode (..))
 data MountDrive :: Effect where
   IsDriveConnected :: MountDrive m Bool
   IsDriveMounted :: MountDrive m Bool
-  MountDrive :: MountDrive m ()
+  Mount :: MountDrive m ()
+  Unmount :: MountDrive m ()
 
 makeEffect ''MountDrive
 
@@ -60,7 +62,7 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
     case exitCode of
       ExitSuccess -> pure True
       _ -> pure False
-  MountDrive -> do
+  Mount -> do
     config <- Reader.ask @MountDriveConfig
     case config.mountingMode of
       MountWithoutEncryption -> do
@@ -91,14 +93,38 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
           , config.mountDirectory
           ]
           ""
+  Unmount -> do
+    config <- Reader.ask @MountDriveConfig
+    case config.mountingMode of
+      MountWithoutEncryption -> do
+        Command.runProcessThrowOnError
+          "sudo"
+          [ "umount"
+          , driveUuidDiskPath config.driveUuid
+          ]
+          ""
+      MountWithPartitionLuks -> do
+        Command.runProcessThrowOnError
+          "sudo"
+          [ "umount"
+          , driveUuidMapperPath config.driveUuid
+          ]
+          ""
+
+        Command.runProcessThrowOnError
+          "sudo"
+          [ "cryptsetup"
+          , "close"
+          , driveUuidMapperPath config.driveUuid
+          ]
+          ""
 
 tryMounting :: MountDrive :> es => Eff es ()
 tryMounting = do
   connected <- isDriveConnected
   when connected $ do
     mounted <- isDriveMounted
-    unless mounted $ do
-      mountDrive
+    unless mounted mount
 
 blockUntilDiskAvailable
   :: (Reader MountDriveConfig :> es, Concurrent :> es, MountDrive :> es)
