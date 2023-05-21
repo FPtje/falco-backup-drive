@@ -16,6 +16,9 @@ module Drive.MountDrive (
   tryMounting,
   blockUntilDiskAvailable,
   blockUntilDiskGone,
+
+  driveUuidDiskPath,
+  driveUuidMapperPath,
 ) where
 
 import Command (Command, CommandError)

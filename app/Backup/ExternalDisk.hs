@@ -9,7 +9,9 @@ module Backup.ExternalDisk (ExternalDiskBackup, run, runExternalDiskBackup, loop
 
 import Backup.RSync (RSync)
 import Backup.RSync qualified as RSync
-import Config.Backup.ExternalDisk (ExternalDiskBackupConfig (..))
+import Command (Command, CommandError)
+import Command qualified
+import Config.Backup.ExternalDisk (ExternalDiskBackupConfig (..), FormatOption (..))
 import Config.Backup.Rsync (RsyncBackupConfig (..))
 import Config.Drive (MountDriveConfig (..))
 import Display (Display (..))
@@ -18,6 +20,7 @@ import Drive.MountDrive qualified as MountDrive
 import Effectful (Eff, Effect, (:>))
 import Effectful.Concurrent (Concurrent)
 import Effectful.Dispatch.Dynamic (interpret)
+import Effectful.Error.Static (Error)
 import Effectful.Reader.Static qualified as Reader
 import Effectful.TH (makeEffect)
 import Logger (Logger)
@@ -36,6 +39,8 @@ data TraceSteps
   | StartingBackup ExternalDiskBackupConfig
   | BackupComplete ExternalDiskBackupConfig
   | UnmountComplete ExternalDiskBackupConfig
+  | FormattingDrive ExternalDiskBackupConfig
+  | FormattingComplete ExternalDiskBackupConfig
 
 instance Display TraceSteps where
   display = \case
@@ -59,9 +64,17 @@ instance Display TraceSteps where
       "Backup "
         <> display config.rsyncConfig.backupName
         <> ": Unmount complete."
+    FormattingDrive config ->
+      "Backup "
+        <> display config.rsyncConfig.backupName
+        <> ": Formatting drive"
+    FormattingComplete config ->
+      "Backup "
+        <> display config.rsyncConfig.backupName
+        <> ": Formatting complete"
 
 runExternalDiskBackup
-  :: (MountDrive :> es, RSync :> es, Concurrent :> es, Logger :> es)
+  :: (MountDrive :> es, RSync :> es, Concurrent :> es, Logger :> es, Command :> es, Error CommandError :> es)
   => Eff (ExternalDiskBackup : es) a
   -> Eff es a
 runExternalDiskBackup = interpret $ \_ -> \case
@@ -76,6 +89,18 @@ runExternalDiskBackup = interpret $ \_ -> \case
 
       MountDrive.unmount
       Logger.displayTrace $ UnmountComplete config
+
+      case config.formatAfterBackup of
+        DoNotFormat -> pure ()
+        FormatExfat -> do
+          Logger.displayTrace $ FormattingDrive config
+          Command.runProcessThrowOnError
+            "sudo"
+            [ "mkfs.exfat"
+            , MountDrive.driveUuidDiskPath config.mountConfig.driveUuid
+            ]
+            ""
+          Logger.displayTrace $ FormattingComplete config
 
 -- | Waits for a disk to appear, mounts it, backs up a directory, unmounts the disk again, waits
 -- until the disk is gone, and then repeats the process
