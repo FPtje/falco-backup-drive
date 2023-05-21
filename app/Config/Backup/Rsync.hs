@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Config.RsyncBackup where
+module Config.Backup.Rsync where
 
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Text (Text)

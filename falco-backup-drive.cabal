@@ -19,11 +19,13 @@ executable falco-backup-drive
 
   -- cabal-fmt: expand app -Main
   other-modules:
+    Backup.ExternalDisk
     Backup.RSync
     Command
+    Config.Backup.ExternalDisk
+    Config.Backup.Rsync
     Config.Drive
     Config.GetConfig
-    Config.RsyncBackup
     Config.TopLevel
     Drive.MountDrive
     Logger
