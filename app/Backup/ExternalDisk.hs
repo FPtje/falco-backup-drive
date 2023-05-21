@@ -36,6 +36,7 @@ data TraceSteps
   = WaitingForDisk ExternalDiskBackupConfig
   | StartingBackup ExternalDiskBackupConfig
   | BackupComplete ExternalDiskBackupConfig
+  | UnmountComplete ExternalDiskBackupConfig
 
 instance Display TraceSteps where
   display = \case
@@ -55,6 +56,10 @@ instance Display TraceSteps where
       "Backup "
         <> display config.rsyncConfig.backupName
         <> ": backup finished, unmounting disk."
+    UnmountComplete config ->
+      "Backup "
+        <> display config.rsyncConfig.backupName
+        <> ": Unmount complete."
 
 runExternalDiskBackup
   :: (MountDrive :> es, RSync :> es, Concurrent :> es, Logger :> es)
@@ -71,6 +76,7 @@ runExternalDiskBackup = interpret $ \_ -> \case
       Logger.displayTrace $ BackupComplete config
 
       MountDrive.unmount
+      Logger.displayTrace $ UnmountComplete config
 
 -- | Waits for a disk to appear, mounts it, backs up a directory, unmounts the disk again, waits
 -- until the disk is gone, and then repeats the process
