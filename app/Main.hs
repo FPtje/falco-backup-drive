@@ -3,6 +3,7 @@
 
 module Main where
 
+import Backup.ExternalDisk qualified as ExternalDiskBackup
 import Backup.RSync qualified as RSync
 import Command (CommandError)
 import Command qualified
@@ -36,13 +37,18 @@ main = do
       runFailOnError @CommandError $
         runFailOnError @Secrets.SecretError $
           Command.runCommand $
-            Secrets.runSecrets $ do
-              forM_ config.mountBackupDrive $ \backupDriveConfig ->
-                Reader.runReader backupDriveConfig $
-                  runMountDrive blockUntilDiskAvailable
+            Secrets.runSecrets $
+              runMountDrive $
+                RSync.runRSync $ do
+                  forM_ config.mountBackupDrive $ \backupDriveConfig ->
+                    Reader.runReader backupDriveConfig blockUntilDiskAvailable
 
-              forM_ config.rsyncBackups $ \rsyncBackupConfig ->
-                Reader.runReader rsyncBackupConfig $ RSync.runRSync RSync.run
+                  forM_ config.rsyncBackups $ \rsyncBackupConfig ->
+                    RSync.run rsyncBackupConfig
+
+                  ExternalDiskBackup.runExternalDiskBackup $
+                    forM_ config.externalDiskBackups $ \externalDiskBackup ->
+                      ExternalDiskBackup.run externalDiskBackup
 
 -- | Run an effect, and on failure, print the error and exit with failure
 runFailOnError

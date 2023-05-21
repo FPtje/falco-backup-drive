@@ -3,7 +3,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Effect to manage the mounting of a drive
@@ -25,46 +24,54 @@ import Config.Drive (MountDriveConfig (..), MountingMode (..))
 import Control.Monad (unless, when)
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Effectful (Eff, Effect, IOE, (:>))
+import Effectful (Dispatch (Dynamic), DispatchOf, Eff, Effect, IOE, (:>))
 import Effectful.Concurrent (Concurrent)
 import Effectful.Concurrent qualified as Concurrent
-import Effectful.Dispatch.Dynamic (reinterpret)
+import Effectful.Dispatch.Dynamic (reinterpret, send)
 import Effectful.Error.Static (Error)
 import Effectful.Error.Static qualified as Error
 import Effectful.FileSystem qualified as FileSystem
 import Effectful.Reader.Static (Reader)
 import Effectful.Reader.Static qualified as Reader
-import Effectful.TH (makeEffect)
 import Secrets (Secrets)
 import Secrets qualified
 import System.Exit (ExitCode (..))
 
 data MountDrive :: Effect where
-  IsDriveConnected :: MountDrive m Bool
-  IsDriveMounted :: MountDrive m Bool
-  Mount :: MountDrive m ()
-  Unmount :: MountDrive m ()
+  IsDriveConnected :: MountDriveConfig -> MountDrive m Bool
+  IsDriveMounted :: MountDriveConfig -> MountDrive m Bool
+  Mount :: MountDriveConfig -> MountDrive m ()
+  Unmount :: MountDriveConfig -> MountDrive m ()
 
-makeEffect ''MountDrive
+type instance DispatchOf MountDrive = Dynamic
+
+unmount :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
+unmount = Reader.ask @MountDriveConfig >>= send . Unmount
+
+mount :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
+mount = Reader.ask @MountDriveConfig >>= send . Mount
+
+isDriveMounted :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es Bool
+isDriveMounted = Reader.ask @MountDriveConfig >>= send . IsDriveMounted
+
+isDriveConnected :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es Bool
+isDriveConnected = Reader.ask @MountDriveConfig >>= send . IsDriveConnected
 
 runMountDrive
-  :: (Error.HasCallStack, IOE :> es, Reader MountDriveConfig :> es, Secrets :> es, Command :> es, Error CommandError :> es)
+  :: (Error.HasCallStack, IOE :> es, Secrets :> es, Command :> es, Error CommandError :> es)
   => Eff (MountDrive : es) a
   -> Eff es a
 runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
-  IsDriveConnected -> do
-    config <- Reader.ask @MountDriveConfig
+  IsDriveConnected config ->
     FileSystem.doesPathExist $ driveUuidDiskPath config.driveUuid
-  IsDriveMounted -> do
-    config <- Reader.ask @MountDriveConfig
+  IsDriveMounted config -> do
     (exitCode, _stdout, _stderr) <-
       Command.readProcessWithExitCode "findmnt" [config.mountDirectory] ""
 
     case exitCode of
       ExitSuccess -> pure True
       _ -> pure False
-  Mount -> do
-    config <- Reader.ask @MountDriveConfig
+  Mount config ->
     case config.mountingMode of
       MountWithoutEncryption -> do
         Command.runProcessThrowOnError
@@ -94,8 +101,7 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
           , config.mountDirectory
           ]
           ""
-  Unmount -> do
-    config <- Reader.ask @MountDriveConfig
+  Unmount config ->
     case config.mountingMode of
       MountWithoutEncryption -> do
         Command.runProcessThrowOnError
@@ -120,7 +126,7 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
           ]
           ""
 
-tryMounting :: MountDrive :> es => Eff es ()
+tryMounting :: (Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
 tryMounting = do
   connected <- isDriveConnected
   when connected $ do
