@@ -13,7 +13,8 @@ import Display (Display (..))
 import GHC.Generics (Generic)
 
 data MountDriveConfig = MountDriveConfig
-  { driveUuid :: Text
+  { drivePath :: FilePath
+  , driveName :: Text
   , mountDirectory :: FilePath
   , mountingMode :: MountingMode
   , pollDelayMs :: Int
@@ -22,8 +23,8 @@ data MountDriveConfig = MountDriveConfig
 
 instance Display MountDriveConfig where
   display config =
-    "Mount disk uuid="
-      <> display config.driveUuid
+    "Mount disk path="
+      <> display config.drivePath
       <> " at "
       <> display config.mountDirectory
       <> " using "

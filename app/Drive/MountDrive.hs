@@ -16,8 +16,6 @@ module Drive.MountDrive (
   tryMounting,
   blockUntilDiskAvailable,
   blockUntilDiskGone,
-
-  driveUuidDiskPath,
   driveUuidMapperPath,
 ) where
 
@@ -66,7 +64,7 @@ runMountDrive
   -> Eff es a
 runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
   IsDriveConnected config ->
-    FileSystem.doesPathExist $ driveUuidDiskPath config.driveUuid
+    FileSystem.doesPathExist config.drivePath
   IsDriveMounted config -> do
     (exitCode, _stdout, _stderr) <-
       Command.readProcessWithExitCode "findmnt" [config.mountDirectory] ""
@@ -77,55 +75,47 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
   Mount config ->
     case config.mountingMode of
       MountWithoutEncryption -> do
-        Command.runProcessThrowOnError
-          "sudo"
-          [ "mount"
-          , "--mkdir"
-          , driveUuidDiskPath config.driveUuid
+        Command.runSudoProcessThrowOnError
+          "mount"
+          [ "--mkdir"
+          , config.drivePath
           , config.mountDirectory
           ]
           ""
       MountWithPartitionLuks -> do
         encryptionSecret <- Secrets.getSecret "DISK_ENCRYPTION_SECRET"
-        Command.runProcessThrowOnError
-          "sudo"
-          [ "cryptsetup"
-          , "open"
-          , driveUuidDiskPath config.driveUuid
-          , Text.unpack config.driveUuid
+        Command.runSudoProcessThrowOnError
+          "cryptsetup"
+          [ "open"
+          , config.drivePath
+          , Text.unpack config.driveName
           ]
           (Text.unpack $ encryptionSecret.value)
 
-        Command.runProcessThrowOnError
-          "sudo"
-          [ "mount"
-          , "--mkdir"
-          , driveUuidMapperPath config.driveUuid
+        Command.runSudoProcessThrowOnError
+          "mount"
+          [ "--mkdir"
+          , driveUuidMapperPath config.driveName
           , config.mountDirectory
           ]
           ""
   Unmount config ->
     case config.mountingMode of
       MountWithoutEncryption -> do
-        Command.runProcessThrowOnError
-          "sudo"
-          [ "umount"
-          , driveUuidDiskPath config.driveUuid
-          ]
+        Command.runSudoProcessThrowOnError
+          "umount"
+          [config.drivePath]
           ""
       MountWithPartitionLuks -> do
-        Command.runProcessThrowOnError
-          "sudo"
-          [ "umount"
-          , driveUuidMapperPath config.driveUuid
-          ]
+        Command.runSudoProcessThrowOnError
+          "umount"
+          [driveUuidMapperPath config.driveName]
           ""
 
-        Command.runProcessThrowOnError
-          "sudo"
-          [ "cryptsetup"
-          , "close"
-          , driveUuidMapperPath config.driveUuid
+        Command.runSudoProcessThrowOnError
+          "cryptsetup"
+          [ "close"
+          , driveUuidMapperPath config.driveName
           ]
           ""
 
@@ -163,10 +153,6 @@ blockUntilDiskGone = do
     Concurrent.threadDelay $ config.pollDelayMs * 1000
     blockUntilDiskGone
 
-driveUuidDiskPath :: Text -> FilePath
-driveUuidDiskPath uuid =
-  "/dev/disk/by-uuid/" ++ Text.unpack uuid
-
 driveUuidMapperPath :: Text -> FilePath
-driveUuidMapperPath uuid =
-  "/dev/mapper/" ++ Text.unpack uuid
+driveUuidMapperPath name =
+  "/dev/mapper/" ++ Text.unpack name

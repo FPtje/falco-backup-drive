@@ -48,12 +48,12 @@ instance Display TraceSteps where
     WaitingForDisk config ->
       header config
         <> ": Waiting for disk "
-        <> display config.mountConfig.driveUuid
+        <> display config.mountConfig.driveName
         <> " to appear"
     StartingBackup config ->
       header config
         <> ": Disk "
-        <> display config.mountConfig.driveUuid
+        <> display config.mountConfig.driveName
         <> " is available, starting backup."
     BackupComplete config ->
       header config
@@ -72,7 +72,6 @@ instance Display TraceSteps where
         <> ": Waiting until disk has disappeared"
    where
     header config = "Backup " <> display config.rsyncConfig.backupName
-
 
 runExternalDiskBackup
   :: (MountDrive :> es, RSync :> es, Concurrent :> es, Logger :> es, Command :> es, Error CommandError :> es)
@@ -95,11 +94,9 @@ runExternalDiskBackup = interpret $ \_ -> \case
         DoNotFormat -> pure ()
         FormatExfat -> do
           Logger.displayTrace $ FormattingDrive config
-          Command.runProcessThrowOnError
-            "sudo"
-            [ "mkfs.exfat"
-            , MountDrive.driveUuidDiskPath config.mountConfig.driveUuid
-            ]
+          Command.runSudoProcessThrowOnError
+            "mkfs.exfat"
+            [config.mountConfig.drivePath]
             ""
           Logger.displayTrace $ FormattingComplete config
 
