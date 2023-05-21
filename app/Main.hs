@@ -10,7 +10,7 @@ import Command (CommandError)
 import Command qualified
 import Config.GetConfig qualified as Config
 import Config.TopLevel qualified as TopLevel
-import Control.Monad (forM, forM_)
+import Control.Monad (forM, forM_, unless)
 import Control.Monad.IO.Class (liftIO)
 import Data.Functor (void)
 import Display (Display)
@@ -55,7 +55,8 @@ main = do
         asyncs <- forM config.externalDiskBackups $ \externalDiskBackup ->
           Concurrent.async $ ExternalDiskBackup.loop externalDiskBackup
 
-        void $ Concurrent.waitAnyCancel asyncs
+        unless (null asyncs) $
+          void $ Concurrent.waitAnyCancel asyncs
 {- FOURMOLU_ENABLE -}
 
 -- | Run an effect, and on failure, print the error and exit with failure
