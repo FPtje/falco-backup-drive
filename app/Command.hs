@@ -74,7 +74,7 @@ runCommand :: IOE :> es => Eff (Command : es) a -> Eff es a
 runCommand = evalStaticRep $ Command ()
 
 runProcessThrowOnError
-  :: (Command :> es, Error CommandError :> es)
+  :: (Error.HasCallStack, Command :> es, Error CommandError :> es)
   => String
   -> [String]
   -> String
@@ -91,7 +91,7 @@ runProcessThrowOnError executable args stdin = do
           (CommandOutput stdout stderr)
 
 readProcessWithExitCode
-  :: (Command :> es, Error CommandError :> es)
+  :: (Error.HasCallStack, Command :> es, Error CommandError :> es)
   => String
   -> [String]
   -> String
