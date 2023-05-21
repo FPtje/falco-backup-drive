@@ -29,7 +29,7 @@ logStdout = interpret $ \_ -> \case
 
 -- | Helper function to print something that has a Display instance
 displayError :: (Display a, Logger :> es) => a -> Eff es ()
-displayError a = logInfo $ Display.displayText a
+displayError a = logError $ Display.displayText a
 
 -- | Helper function to print something that has a Display instance
 displayInfo :: (Display a, Logger :> es) => a -> Eff es ()
