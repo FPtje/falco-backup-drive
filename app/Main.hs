@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
@@ -9,8 +10,9 @@ import Command (CommandError)
 import Command qualified
 import Config.GetConfig qualified as Config
 import Config.TopLevel qualified as TopLevel
+import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class (liftIO)
-import Data.Foldable (forM_)
+import Data.Functor (void)
 import Display (Display)
 import Drive.MountDrive (
   blockUntilDiskAvailable,
@@ -18,6 +20,7 @@ import Drive.MountDrive (
  )
 import Effectful (Eff, IOE, runEff, (:>))
 import Effectful.Concurrent qualified as Concurrent
+import Effectful.Concurrent.Async qualified as Concurrent
 import Effectful.Environment qualified as Environment
 import Effectful.Error.Static (Error)
 import Effectful.Error.Static qualified as Error
@@ -33,22 +36,27 @@ main = do
     config <- Config.readConfig
 
     Logger.displayInfo config
-    Concurrent.runConcurrent $
-      runFailOnError @CommandError $
-        runFailOnError @Secrets.SecretError $
-          Command.runCommand $
-            Secrets.runSecrets $
-              runMountDrive $
-                RSync.runRSync $ do
-                  forM_ config.mountBackupDrive $ \backupDriveConfig ->
-                    Reader.runReader backupDriveConfig blockUntilDiskAvailable
 
-                  forM_ config.rsyncBackups $ \rsyncBackupConfig ->
-                    RSync.run rsyncBackupConfig
+    Logger.logInfo ""
 
-                  ExternalDiskBackup.runExternalDiskBackup $
-                    forM_ config.externalDiskBackups $ \externalDiskBackup ->
-                      ExternalDiskBackup.loop externalDiskBackup
+{- FOURMOLU_DISABLE -}
+    Concurrent.runConcurrent $ runFailOnError @CommandError $ runFailOnError @Secrets.SecretError $
+      Command.runCommand $ Secrets.runSecrets $ runMountDrive $ RSync.runRSync $
+      ExternalDiskBackup.runExternalDiskBackup $ do
+        -- Mount any configured drives
+        forM_ config.mountBackupDrive $ \backupDriveConfig ->
+          Reader.runReader backupDriveConfig blockUntilDiskAvailable
+
+        -- Run any one-off rsync backups (TODO: have them repeat on a schedule)
+        forM_ config.rsyncBackups $ \rsyncBackupConfig ->
+          RSync.run rsyncBackupConfig
+
+        -- Loop on all external disk backups
+        asyncs <- forM config.externalDiskBackups $ \externalDiskBackup ->
+          Concurrent.async $ ExternalDiskBackup.loop externalDiskBackup
+
+        void $ Concurrent.waitAnyCancel asyncs
+{- FOURMOLU_ENABLE -}
 
 -- | Run an effect, and on failure, print the error and exit with failure
 runFailOnError
