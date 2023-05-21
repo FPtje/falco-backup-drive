@@ -41,37 +41,38 @@ data TraceSteps
   | UnmountComplete ExternalDiskBackupConfig
   | FormattingDrive ExternalDiskBackupConfig
   | FormattingComplete ExternalDiskBackupConfig
+  | WaitUntilDiskIsGone ExternalDiskBackupConfig
 
 instance Display TraceSteps where
   display = \case
     WaitingForDisk config ->
-      "Backup "
-        <> display config.rsyncConfig.backupName
+      header config
         <> ": Waiting for disk "
         <> display config.mountConfig.driveUuid
         <> " to appear"
     StartingBackup config ->
-      "Backup "
-        <> display config.rsyncConfig.backupName
+      header config
         <> ": Disk "
         <> display config.mountConfig.driveUuid
         <> " is available, starting backup."
     BackupComplete config ->
-      "Backup "
-        <> display config.rsyncConfig.backupName
+      header config
         <> ": backup finished, unmounting disk."
     UnmountComplete config ->
-      "Backup "
-        <> display config.rsyncConfig.backupName
+      header config
         <> ": Unmount complete."
     FormattingDrive config ->
-      "Backup "
-        <> display config.rsyncConfig.backupName
+      header config
         <> ": Formatting drive"
     FormattingComplete config ->
-      "Backup "
-        <> display config.rsyncConfig.backupName
+      header config
         <> ": Formatting complete"
+    WaitUntilDiskIsGone config ->
+      header config
+        <> ": Waiting until disk has disappeared"
+   where
+    header config = "Backup " <> display config.rsyncConfig.backupName
+
 
 runExternalDiskBackup
   :: (MountDrive :> es, RSync :> es, Concurrent :> es, Logger :> es, Command :> es, Error CommandError :> es)
@@ -105,7 +106,7 @@ runExternalDiskBackup = interpret $ \_ -> \case
 -- | Waits for a disk to appear, mounts it, backs up a directory, unmounts the disk again, waits
 -- until the disk is gone, and then repeats the process
 loop
-  :: (ExternalDiskBackup :> es, MountDrive :> es, Concurrent :> es)
+  :: (ExternalDiskBackup :> es, MountDrive :> es, Logger :> es, Concurrent :> es)
   => ExternalDiskBackupConfig
   -> Eff es ()
 loop config =
@@ -113,6 +114,7 @@ loop config =
  where
   go = do
     run config
+    Logger.displayTrace $ WaitUntilDiskIsGone config
     Reader.runReader config.mountConfig MountDrive.blockUntilDiskGone
 
     go
