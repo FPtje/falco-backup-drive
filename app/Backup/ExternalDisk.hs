@@ -14,6 +14,7 @@ import Command qualified
 import Config.Backup.ExternalDisk (ExternalDiskBackupConfig (..), FormatOption (..))
 import Config.Backup.Rsync (RsyncBackupConfig (..))
 import Config.Drive (MountDriveConfig (..))
+import Data.Text qualified as Text
 import Display (Display (..))
 import Drive.MountDrive (MountDrive)
 import Drive.MountDrive qualified as MountDrive
@@ -101,7 +102,9 @@ runExternalDiskBackup = interpret $ \_ -> \case
           trace config FormattingDrive
           Command.runSudoProcessThrowOnError
             "mkfs.exfat"
-            [config.mountConfig.drivePath]
+            [ "--volume-label=" <> Text.unpack config.mountConfig.driveName
+            , config.mountConfig.drivePath
+            ]
             ""
           trace config FormattingComplete
 
