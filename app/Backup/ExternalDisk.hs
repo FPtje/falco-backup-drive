@@ -20,7 +20,9 @@ import Drive.MountDrive qualified as MountDrive
 import Effectful (Eff, Effect, (:>))
 import Effectful.Concurrent (Concurrent)
 import Effectful.Dispatch.Dynamic (interpret)
+import Effectful.Error qualified as Error
 import Effectful.Error.Static (Error)
+import Effectful.Error.Static qualified as Error
 import Effectful.Reader.Static qualified as Reader
 import Effectful.TH (makeEffect)
 import Logger (Logger)
@@ -34,44 +36,47 @@ data ExternalDiskBackup :: Effect where
 makeEffect ''ExternalDiskBackup
 
 -- | Represents the steps taken in the backup, used for logging
-data TraceSteps
-  = WaitingForDisk ExternalDiskBackupConfig
-  | StartingBackup ExternalDiskBackupConfig
-  | BackupComplete ExternalDiskBackupConfig
-  | UnmountComplete ExternalDiskBackupConfig
-  | FormattingDrive ExternalDiskBackupConfig
-  | FormattingComplete ExternalDiskBackupConfig
-  | WaitUntilDiskIsGone ExternalDiskBackupConfig
+data Trace = Trace ExternalDiskBackupConfig TraceStep
 
-instance Display TraceSteps where
-  display = \case
-    WaitingForDisk config ->
-      header config
-        <> ": Waiting for disk "
-        <> display config.mountConfig.driveName
-        <> " to appear"
-    StartingBackup config ->
-      header config
-        <> ": Disk "
-        <> display config.mountConfig.driveName
-        <> " is available, starting backup."
-    BackupComplete config ->
-      header config
-        <> ": backup finished, unmounting disk."
-    UnmountComplete config ->
-      header config
-        <> ": Unmount complete."
-    FormattingDrive config ->
-      header config
-        <> ": Formatting drive"
-    FormattingComplete config ->
-      header config
-        <> ": Formatting complete"
-    WaitUntilDiskIsGone config ->
-      header config
-        <> ": Waiting until disk has disappeared"
+-- | An individual traced step
+data TraceStep
+  = WaitingForDisk
+  | StartingBackup
+  | BackupComplete
+  | UnmountComplete
+  | FormattingDrive
+  | FormattingComplete
+  | BackupFailed Error.CallStack CommandError
+  | WaitUntilDiskIsGone
+
+instance Display Trace where
+  display (Trace config step) =
+    "Backup "
+      <> display config.rsyncConfig.backupName
+      <> ": "
+      <> displayStep
    where
-    header config = "Backup " <> display config.rsyncConfig.backupName
+    displayStep = case step of
+      WaitingForDisk ->
+        "Waiting for disk "
+          <> display config.mountConfig.driveName
+          <> " to appear"
+      StartingBackup ->
+        "Disk "
+          <> display config.mountConfig.driveName
+          <> " is available, starting backup."
+      BackupComplete ->
+        "backup finished, unmounting disk."
+      UnmountComplete ->
+        "Unmount complete."
+      FormattingDrive ->
+        "Formatting drive"
+      FormattingComplete ->
+        "Formatting complete"
+      BackupFailed callstack err ->
+        "Backup failed with the following error:\n" <> Error.displayError (callstack, err)
+      WaitUntilDiskIsGone ->
+        "Waiting until disk has disappeared"
 
 runExternalDiskBackup
   :: (MountDrive :> es, RSync :> es, Concurrent :> es, Logger :> es, Command :> es, Error CommandError :> es)
@@ -80,38 +85,45 @@ runExternalDiskBackup
 runExternalDiskBackup = interpret $ \_ -> \case
   Run config -> do
     Reader.runReader config.mountConfig $ do
-      Logger.displayTrace $ WaitingForDisk config
+      trace config WaitingForDisk
       MountDrive.blockUntilDiskAvailable
 
-      Logger.displayTrace $ StartingBackup config
+      trace config StartingBackup
       RSync.run config.rsyncConfig
-      Logger.displayTrace $ BackupComplete config
+      trace config BackupComplete
 
       MountDrive.unmount
-      Logger.displayTrace $ UnmountComplete config
+      trace config UnmountComplete
 
       case config.formatAfterBackup of
         DoNotFormat -> pure ()
         FormatExfat -> do
-          Logger.displayTrace $ FormattingDrive config
+          trace config FormattingDrive
           Command.runSudoProcessThrowOnError
             "mkfs.exfat"
             [config.mountConfig.drivePath]
             ""
-          Logger.displayTrace $ FormattingComplete config
+          trace config FormattingComplete
 
 -- | Waits for a disk to appear, mounts it, backs up a directory, unmounts the disk again, waits
 -- until the disk is gone, and then repeats the process
 loop
-  :: (ExternalDiskBackup :> es, MountDrive :> es, Logger :> es, Concurrent :> es)
+  :: (ExternalDiskBackup :> es, MountDrive :> es, Logger :> es, Concurrent :> es, Error CommandError :> es)
   => ExternalDiskBackupConfig
   -> Eff es ()
 loop config =
   go
  where
   go = do
-    run config
-    Logger.displayTrace $ WaitUntilDiskIsGone config
+    Error.handleError
+      (\callstack err -> trace config $ BackupFailed callstack err)
+      $ run config
+
+    trace config WaitUntilDiskIsGone
     Reader.runReader config.mountConfig MountDrive.blockUntilDiskGone
 
     go
+
+-- | Internal function to trace a step
+trace :: Logger :> es => ExternalDiskBackupConfig -> TraceStep -> Eff es ()
+trace config step = Logger.displayTrace $ Trace config step

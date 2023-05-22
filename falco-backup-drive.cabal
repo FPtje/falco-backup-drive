@@ -28,6 +28,7 @@ executable falco-backup-drive
     Config.GetConfig
     Config.TopLevel
     Drive.MountDrive
+    Effectful.Error
     Logger
     Secrets
 

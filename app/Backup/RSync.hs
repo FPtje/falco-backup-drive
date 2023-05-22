@@ -16,7 +16,6 @@ import Effectful.Error.Static qualified as Error
 import Effectful.FileSystem qualified as FileSystem
 import Effectful.TH (makeEffect)
 import Logger (Logger)
-import Logger qualified
 
 data RSync :: Effect where
   Run :: RsyncBackupConfig -> RSync m ()
@@ -31,20 +30,13 @@ runRSync
   -> Eff es a
 runRSync = reinterpret FileSystem.runFileSystem $ \_ -> \case
   Run config -> do
-    sourceExists <- FileSystem.doesPathExist config.backupSource
-    if not sourceExists
-      then -- TODO: throw an error?
+    FileSystem.createDirectoryIfMissing True config.backupDestination
 
-        Logger.displayInfo $
-          "Source location " <> config.backupSource <> " does not exist! Skipping backup!"
-      else do
-        FileSystem.createDirectoryIfMissing True config.backupDestination
-
-        Command.runProcessThrowOnError
-          "rsync"
-          [ "--archive"
-          , "--fsync"
-          , config.backupSource
-          , config.backupDestination
-          ]
-          ""
+    Command.runProcessThrowOnError
+      "rsync"
+      [ "--archive"
+      , "--fsync"
+      , config.backupSource
+      , config.backupDestination
+      ]
+      ""
