@@ -27,6 +27,7 @@ executable falco-backup-drive
     Config.Drive
     Config.GetConfig
     Config.TopLevel
+    Database.Persistent.SqliteEffect
     Drive.MountDrive
     Effectful.Error
     Logger
@@ -35,14 +36,21 @@ executable falco-backup-drive
   -- other-extensions:
   build-depends:
     , aeson
-    , base          ^>=4.17.1.0
+    , base                 ^>=4.17.1.0
     , bytestring
     , directory
     , display
     , effectful
     , effectful-th
+    , esqueleto
     , exceptions
+    , monad-logger
+    , mtl
+    , persistent
+    , persistent-sqlite
+    , persistent-template
     , process
+    , resourcet
     , text
 
   hs-source-dirs:   app
