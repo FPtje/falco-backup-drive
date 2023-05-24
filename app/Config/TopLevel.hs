@@ -8,13 +8,15 @@ module Config.TopLevel where
 import Config.Backup.ExternalDisk (ExternalDiskBackupConfig)
 import Config.Backup.Rsync (RsyncBackupConfig)
 import Config.Drive (MountDriveConfig)
+import Config.State (StateConfig (..))
 import Data.Aeson (FromJSON, ToJSON)
 import Data.List (foldl')
 import Display (Display (..))
 import GHC.Generics (Generic)
 
 data Config = Config
-  { mountBackupDrive :: Maybe MountDriveConfig
+  { state :: StateConfig
+  , mountBackupDrive :: Maybe MountDriveConfig
   , rsyncBackups :: [RsyncBackupConfig]
   , externalDiskBackups :: [ExternalDiskBackupConfig]
   }
@@ -32,7 +34,8 @@ instance Display Config where
 defaultConfig :: Config
 defaultConfig =
   Config
-    { mountBackupDrive = Nothing
+    { state = StateConfig ":memory:"
+    , mountBackupDrive = Nothing
     , rsyncBackups = []
     , externalDiskBackups = []
     }

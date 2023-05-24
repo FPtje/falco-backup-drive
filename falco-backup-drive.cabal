@@ -26,12 +26,14 @@ executable falco-backup-drive
     Config.Backup.Rsync
     Config.Drive
     Config.GetConfig
+    Config.State
     Config.TopLevel
     Database.Persistent.SqliteEffect
     Drive.MountDrive
     Effectful.Error
     Logger
     Secrets
+    State.MostRecentBackup
 
   -- other-extensions:
   build-depends:
@@ -52,6 +54,7 @@ executable falco-backup-drive
     , process
     , resourcet
     , text
+    , time
 
   hs-source-dirs:   app
   default-language: GHC2021

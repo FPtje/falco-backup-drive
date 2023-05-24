@@ -12,6 +12,7 @@ import Config.GetConfig qualified as Config
 import Config.TopLevel qualified as TopLevel
 import Control.Monad (forM, forM_, unless)
 import Data.Functor (void)
+import Database.Persistent.SqliteEffect qualified as Sqlite
 import Drive.MountDrive (
   blockUntilDiskAvailable,
   runMountDrive,
@@ -24,6 +25,7 @@ import Effectful.Error qualified as Error
 import Effectful.Reader.Static qualified as Reader
 import Logger qualified
 import Secrets qualified
+import State.MostRecentBackup qualified as MostRecentBackup
 
 main :: IO ()
 main = do
@@ -36,8 +38,13 @@ main = do
 
 {- FOURMOLU_DISABLE -}
     Concurrent.runConcurrent $ Error.runFailOnError @CommandError $
-      Error.runFailOnError @Secrets.SecretError $ Command.runCommand $ Secrets.runSecrets $
-      runMountDrive $ RSync.runRSync $ ExternalDiskBackup.runExternalDiskBackup $ do
+      Error.runFailOnError @Secrets.SecretError $ Command.runCommand $ Sqlite.runSqliteIO $
+      Secrets.runSecrets $ runMountDrive $ RSync.runRSync $
+      MostRecentBackup.runMostRecentBackupStateSqlite config.state $
+      ExternalDiskBackup.runExternalDiskBackup $ do
+        -- Create the database and tables
+        MostRecentBackup.migrateTables config.state
+
         -- Mount any configured drives
         forM_ config.mountBackupDrive $ \backupDriveConfig ->
             Reader.runReader backupDriveConfig blockUntilDiskAvailable
