@@ -27,10 +27,10 @@ import Database.Esqueleto.Experimental qualified as E
 import Database.Persist qualified as Persist
 import Database.Persist.Sqlite qualified as Persist
 import Database.Persist.TH (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
-import Database.Persistent.SqliteEffect (Sqlite)
-import Database.Persistent.SqliteEffect qualified as Sqlite
 import Effectful (Eff, Effect, IOE, (:>))
 import Effectful.Dispatch.Dynamic (interpret)
+import Effectful.Persistent.SqliteEffect (Sqlite)
+import Effectful.Persistent.SqliteEffect qualified as Sqlite
 import Effectful.TH (makeEffect)
 
 share

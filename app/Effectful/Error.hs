@@ -5,14 +5,14 @@
 module Effectful.Error where
 
 import Control.Monad.IO.Class (liftIO)
-import Display (Display(..))
+import Data.ByteString.Builder qualified as BS
+import Display (Display (..))
 import Effectful (Eff, IOE, (:>))
 import Effectful.Error.Static (Error)
 import Effectful.Error.Static qualified as Error
 import Logger (Logger)
 import Logger qualified
 import System.Exit (exitFailure)
-import Data.ByteString.Builder qualified as BS
 
 -- | Run an effect, and on failure, print the error and exit with failure
 runFailOnError

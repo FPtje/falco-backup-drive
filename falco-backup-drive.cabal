@@ -28,9 +28,9 @@ executable falco-backup-drive
     Config.GetConfig
     Config.State
     Config.TopLevel
-    Database.Persistent.SqliteEffect
     Drive.MountDrive
     Effectful.Error
+    Effectful.Persistent.SqliteEffect
     Logger
     Secrets
     State.MostRecentBackup

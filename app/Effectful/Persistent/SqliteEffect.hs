@@ -5,7 +5,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Database.Persistent.SqliteEffect where
+module Effectful.Persistent.SqliteEffect where
 
 import Control.Monad.Logger (NoLoggingT)
 import Control.Monad.Logger.CallStack (mapNoLoggingT)

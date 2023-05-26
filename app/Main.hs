@@ -12,7 +12,6 @@ import Config.GetConfig qualified as Config
 import Config.TopLevel qualified as TopLevel
 import Control.Monad (forM, forM_, unless)
 import Data.Functor (void)
-import Database.Persistent.SqliteEffect qualified as Sqlite
 import Drive.MountDrive (
   blockUntilDiskAvailable,
   runMountDrive,
@@ -22,6 +21,7 @@ import Effectful.Concurrent qualified as Concurrent
 import Effectful.Concurrent.Async qualified as Concurrent
 import Effectful.Environment qualified as Environment
 import Effectful.Error qualified as Error
+import Effectful.Persistent.SqliteEffect qualified as Sqlite
 import Effectful.Reader.Static qualified as Reader
 import Logger qualified
 import Secrets qualified
