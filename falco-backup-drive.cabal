@@ -32,6 +32,7 @@ executable falco-backup-drive
     Effectful.Error
     Effectful.Persistent.SqliteEffect
     Logger
+    RunEffects
     Secrets
     State.MostRecentBackup
 
