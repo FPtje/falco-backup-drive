@@ -40,7 +40,7 @@ main = do
     Concurrent.runConcurrent $ Error.runFailOnError @CommandError $
       Error.runFailOnError @Secrets.SecretError $ Command.runCommand $ Sqlite.runSqliteIO $
       Secrets.runSecrets $ runMountDrive $ RSync.runRSync $
-      MostRecentBackup.runMostRecentBackupStateSqlite config.state $
+      MostRecentBackup.runMostRecentBackupStateSqlite $
       ExternalDiskBackup.runExternalDiskBackup $ do
         -- Create the database and tables
         MostRecentBackup.migrateTables config.state

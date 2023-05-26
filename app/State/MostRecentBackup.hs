@@ -44,24 +44,23 @@ share
 
 -- | Stores the most recent backup state
 data MostRecentBackupState :: Effect where
-  StoreBackupTimeNow :: Text -> MostRecentBackupState m ()
-  GetMostRecentBackup :: Text -> MostRecentBackupState m (Maybe UTCTime)
+  StoreBackupTimeNow :: StateConfig -> Text -> MostRecentBackupState m ()
+  GetMostRecentBackup :: StateConfig -> Text -> MostRecentBackupState m (Maybe UTCTime)
 
 makeEffect ''MostRecentBackupState
 
 runMostRecentBackupStateSqlite
   :: (IOE :> es, Sqlite :> es)
-  => StateConfig
-  -> Eff (MostRecentBackupState : es) a
+  => Eff (MostRecentBackupState : es) a
   -> Eff es a
-runMostRecentBackupStateSqlite stateConfig = interpret $ \_ -> \case
-  StoreBackupTimeNow backupName ->
+runMostRecentBackupStateSqlite = interpret $ \_ -> \case
+  StoreBackupTimeNow stateConfig backupName ->
     Sqlite.runSqlite stateConfig.sqliteFilePath $ do
       E.delete $ deleteBackupsByName backupName
       time <- liftIO getCurrentTime
       _insertedKey <- Persist.insert $ MostRecentBackup backupName time
       pure ()
-  GetMostRecentBackup backupName -> do
+  GetMostRecentBackup stateConfig backupName -> do
     mostRecentTime <-
       Sqlite.runSqlite stateConfig.sqliteFilePath $
         E.selectOne $
