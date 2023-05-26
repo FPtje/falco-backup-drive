@@ -22,15 +22,17 @@ data PeriodicBackupConfig subconfig = PeriodicBackupConfig
 instance Display subconfig => Display (PeriodicBackupConfig subconfig) where
   display config =
     "Backing up every "
-      <> display interval
+      <> display (formatBackupInterval config.backupInterval)
       <> " under id="
       <> display config.scheduleIdentifier
       <> ":\n  "
       <> display config.backup
-   where
-    interval =
-      formatTime
-        defaultTimeLocale
-        "%H hours, %M minutes, %S seconds"
-        $ posixSecondsToUTCTime
-        $ realToFrac config.backupInterval
+
+-- | Helper to format a difftime for backup use
+formatBackupInterval :: NominalDiffTime -> String
+formatBackupInterval interval =
+  formatTime
+    defaultTimeLocale
+    "%H hours, %M minutes, %S seconds"
+    $ posixSecondsToUTCTime
+    $ realToFrac interval

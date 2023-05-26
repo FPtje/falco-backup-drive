@@ -8,7 +8,7 @@
 -- | Loop a backup, and make sure it runs only once every X seconds/minutes/hours/days.
 module Backup.PeriodicBackup where
 
-import Config.Backup.PeriodicBackup (PeriodicBackupConfig (..))
+import Config.Backup.PeriodicBackup (PeriodicBackupConfig (..), formatBackupInterval)
 import Config.State (StateConfig)
 import Data.Time (NominalDiffTime, addUTCTime, diffUTCTime)
 import Display (Display (..))
@@ -57,9 +57,15 @@ loopPeriodicBackup stateConfig config runBackup = go
   go = do
     nextBackup <- getNextTimeToBackup stateConfig config
     case nextBackup of
-      RunAsap -> Logger.displayInfo $ "Running backup " <> display config.scheduleIdentifier <> " immediately"
+      RunAsap ->
+        Logger.displayInfo $
+          "Running backup " <> display config.scheduleIdentifier <> " immediately"
       RunIn delay -> do
-        Logger.displayInfo $ "Running backup " <> display config.scheduleIdentifier <> " after a delay of " <> display (show delay)
+        Logger.displayInfo $
+          "Running backup "
+            <> display config.scheduleIdentifier
+            <> " after a delay of "
+            <> display (formatBackupInterval delay)
         Concurrent.threadDelay $ truncate $ delay * 1000000
 
     timeBeforeBackup <- Time.getCurrentTime
