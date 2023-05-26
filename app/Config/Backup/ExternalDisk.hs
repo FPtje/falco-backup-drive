@@ -33,5 +33,5 @@ instance Display ExternalDiskBackupConfig where
 
 instance Display FormatOption where
   display = \case
-    DoNotFormat -> "There will be NO formatting after the backup"
-    FormatExfat -> "The drive will be formatted with exfat after the backup"
+    DoNotFormat -> "There will be NO formatting after the backup."
+    FormatExfat -> "The drive will be formatted with exfat after the backup."

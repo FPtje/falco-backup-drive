@@ -24,7 +24,10 @@ data Config = Config
 
 instance Display Config where
   display config =
-    "Backup config:\n  "
+    "Backup config:\n"
+      <> "Storing persistent state state in "
+      <> display config.state.sqliteFilePath
+      <> "\n"
       <> maybe "Not mounting any drives" display config.mountBackupDrive
       <> "\nRsync backups:"
       <> foldl' (\acc c -> acc <> "\n  " <> display c) "" config.rsyncBackups
