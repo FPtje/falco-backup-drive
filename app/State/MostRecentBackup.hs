@@ -12,17 +12,17 @@
 -- | Stores state for the most recent backup times
 module State.MostRecentBackup (
   MostRecentBackup (..),
+  BackupName (..),
   MostRecentBackupState,
   runMostRecentBackupStateSqlite,
-  storeBackupTimeNow,
+  storeBackupTime,
   getMostRecentBackup,
   migrateTables,
 ) where
 
-import Config.State (StateConfig (..))
-import Control.Monad.IO.Class (liftIO)
+import Config.State (BackupName (..), StateConfig (..))
 import Data.Text (Text)
-import Data.Time (UTCTime, getCurrentTime)
+import Data.Time (UTCTime)
 import Database.Esqueleto.Experimental qualified as E
 import Database.Persist qualified as Persist
 import Database.Persist.Sqlite qualified as Persist
@@ -44,8 +44,8 @@ share
 
 -- | Stores the most recent backup state
 data MostRecentBackupState :: Effect where
-  StoreBackupTimeNow :: StateConfig -> Text -> MostRecentBackupState m ()
-  GetMostRecentBackup :: StateConfig -> Text -> MostRecentBackupState m (Maybe UTCTime)
+  StoreBackupTime :: StateConfig -> BackupName -> UTCTime -> MostRecentBackupState m ()
+  GetMostRecentBackup :: StateConfig -> BackupName -> MostRecentBackupState m (Maybe UTCTime)
 
 makeEffect ''MostRecentBackupState
 
@@ -54,17 +54,16 @@ runMostRecentBackupStateSqlite
   => Eff (MostRecentBackupState : es) a
   -> Eff es a
 runMostRecentBackupStateSqlite = interpret $ \_ -> \case
-  StoreBackupTimeNow stateConfig backupName ->
+  StoreBackupTime stateConfig backupName time ->
     Sqlite.runSqlite stateConfig.sqliteFilePath $ do
-      E.delete $ deleteBackupsByName backupName
-      time <- liftIO getCurrentTime
-      _insertedKey <- Persist.insert $ MostRecentBackup backupName time
+      E.delete $ deleteBackupsByName backupName.name
+      _insertedKey <- Persist.insert $ MostRecentBackup backupName.name time
       pure ()
   GetMostRecentBackup stateConfig backupName -> do
     mostRecentTime <-
       Sqlite.runSqlite stateConfig.sqliteFilePath $
         E.selectOne $
-          mostRecentBackupQuery backupName
+          mostRecentBackupQuery backupName.name
     pure $ fmap E.unValue mostRecentTime
 
 -- | Run the sqlite table migration

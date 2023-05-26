@@ -20,9 +20,11 @@ executable falco-backup-drive
   -- cabal-fmt: expand app -Main
   other-modules:
     Backup.ExternalDisk
+    Backup.PeriodicBackup
     Backup.RSync
     Command
     Config.Backup.ExternalDisk
+    Config.Backup.PeriodicBackup
     Config.Backup.Rsync
     Config.Drive
     Config.GetConfig
@@ -31,6 +33,7 @@ executable falco-backup-drive
     Drive.MountDrive
     Effectful.Error
     Effectful.Persistent.SqliteEffect
+    Effectful.Time
     Logger
     RunEffects
     Secrets

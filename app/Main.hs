@@ -7,7 +7,9 @@
 module Main where
 
 import Backup.ExternalDisk qualified as ExternalDiskBackup
+import Backup.PeriodicBackup qualified as PeriodicBackup
 import Backup.RSync qualified as RSync
+import Config.Backup.PeriodicBackup (PeriodicBackupConfig (..))
 import Config.GetConfig qualified as Config
 import Config.TopLevel qualified as TopLevel
 import Control.Monad (forM, forM_, unless)
@@ -35,14 +37,19 @@ main = runEffects $ do
   forM_ config.mountBackupDrive $ \backupDriveConfig ->
     Reader.runReader backupDriveConfig blockUntilDiskAvailable
 
-  -- Run any one-off rsync backups (TODO: have them repeat on a schedule)
-  forM_ config.rsyncBackups $ \rsyncBackupConfig ->
-    RSync.run rsyncBackupConfig
+  -- Run perioic rsync backups
+  rsyncAsyncs <- forM config.rsyncBackups $ \periodicRsyncBackupConfig ->
+    Concurrent.async $
+      PeriodicBackup.loopPeriodicBackup config.state periodicRsyncBackupConfig $
+        RSync.run periodicRsyncBackupConfig.backup
 
   -- Loop on all external disk backups
-  asyncs <- forM config.externalDiskBackups $ \externalDiskBackup ->
+  externalDiskAsyncs <- forM config.externalDiskBackups $ \externalDiskBackup ->
     Concurrent.async $ ExternalDiskBackup.loop externalDiskBackup
 
-  unless (null asyncs) $
+  let
+    allAsyncs = rsyncAsyncs ++ externalDiskAsyncs
+
+  unless (null allAsyncs) $
     void $
-      Concurrent.waitAnyCancel asyncs
+      Concurrent.waitAnyCancel allAsyncs

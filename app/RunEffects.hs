@@ -9,6 +9,7 @@
 module RunEffects where
 
 import Backup.ExternalDisk qualified as ExternalDiskBackup
+import Backup.PeriodicBackup qualified as PeriodicBackup
 import Backup.RSync qualified as RSync
 import Command (CommandError)
 import Command qualified
@@ -21,6 +22,7 @@ import Effectful.Concurrent qualified as Concurrent
 import Effectful.Environment qualified as Environment
 import Effectful.Error qualified as Error
 import Effectful.Persistent.SqliteEffect qualified as Sqlite
+import Effectful.Time qualified as Time
 import Logger qualified
 import Secrets qualified
 import State.MostRecentBackup qualified as MostRecentBackup
@@ -46,3 +48,5 @@ runEffects =
     . RSync.runRSync
     . MostRecentBackup.runMostRecentBackupStateSqlite
     . ExternalDiskBackup.runExternalDiskBackup
+    . Time.runCurrentTime
+    . PeriodicBackup.runPeriodicBackup

@@ -6,6 +6,7 @@
 module Config.TopLevel where
 
 import Config.Backup.ExternalDisk (ExternalDiskBackupConfig)
+import Config.Backup.PeriodicBackup (PeriodicBackupConfig)
 import Config.Backup.Rsync (RsyncBackupConfig)
 import Config.Drive (MountDriveConfig)
 import Config.State (StateConfig (..))
@@ -17,7 +18,7 @@ import GHC.Generics (Generic)
 data Config = Config
   { state :: StateConfig
   , mountBackupDrive :: Maybe MountDriveConfig
-  , rsyncBackups :: [RsyncBackupConfig]
+  , rsyncBackups :: [PeriodicBackupConfig RsyncBackupConfig]
   , externalDiskBackups :: [ExternalDiskBackupConfig]
   }
   deriving (Generic, ToJSON, FromJSON)
