@@ -5,6 +5,7 @@
 module Config.Drive (
   MountDriveConfig (..),
   MountingMode (..),
+  FsckMode (..)
 ) where
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -18,6 +19,7 @@ data MountDriveConfig = MountDriveConfig
   , mountDirectory :: FilePath
   , mountingMode :: MountingMode
   , pollDelayMs :: Int
+  , fsck :: FsckMode
   }
   deriving (Generic, FromJSON, ToJSON)
 
@@ -31,7 +33,8 @@ instance Display MountDriveConfig where
       <> display config.mountingMode
       <> ", polling every "
       <> display config.pollDelayMs
-      <> "ms"
+      <> "ms, "
+      <> display config.fsck
 
 data MountingMode
   = MountWithoutEncryption
@@ -41,3 +44,12 @@ data MountingMode
 instance Display MountingMode where
   display MountWithoutEncryption = "mount without encryption"
   display MountWithPartitionLuks{} = "mount with LUKS encryption"
+
+data FsckMode
+  = DoNotFsck
+  | FsckRepairExfat
+  deriving (Generic, FromJSON, ToJSON)
+
+instance Display FsckMode where
+  display DoNotFsck = "not running fsck"
+  display FsckRepairExfat = "running `fsck.exfat --repair-yes` before mount"

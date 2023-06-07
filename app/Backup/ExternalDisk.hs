@@ -93,7 +93,7 @@ runExternalDiskBackup = interpret $ \_ -> \case
       RSync.run config.rsyncConfig
       trace config BackupComplete
 
-      MountDrive.unmount
+      MountDrive.closeDisk
       trace config UnmountComplete
 
       case config.formatAfterBackup of

@@ -10,18 +10,22 @@ module Drive.MountDrive (
   MountDrive,
   isDriveConnected,
   isDriveMounted,
+  luksOpen,
+  luksClose,
   mount,
   unmount,
+  fsckRepair,
   runMountDrive,
   tryMounting,
   blockUntilDiskAvailable,
   blockUntilDiskGone,
+  closeDisk,
   driveUuidMapperPath,
 ) where
 
 import Command (Command, CommandError)
 import Command qualified
-import Config.Drive (MountDriveConfig (..), MountingMode (..))
+import Config.Drive (FsckMode (..), MountDriveConfig (..), MountingMode (..))
 import Control.Monad (unless, when)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -41,10 +45,19 @@ import System.Exit (ExitCode (..))
 data MountDrive :: Effect where
   IsDriveConnected :: MountDriveConfig -> MountDrive m Bool
   IsDriveMounted :: MountDriveConfig -> MountDrive m Bool
+  LuksOpen :: MountDriveConfig -> MountDrive m ()
+  LuksClose :: MountDriveConfig -> MountDrive m ()
   Mount :: MountDriveConfig -> MountDrive m ()
   Unmount :: MountDriveConfig -> MountDrive m ()
+  FsckRepair :: MountDriveConfig -> MountDrive m ()
 
 type instance DispatchOf MountDrive = Dynamic
+
+luksOpen :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
+luksOpen = Reader.ask @MountDriveConfig >>= send . LuksOpen
+
+luksClose :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
+luksClose = Reader.ask @MountDriveConfig >>= send . LuksClose
 
 unmount :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
 unmount = Reader.ask @MountDriveConfig >>= send . Unmount
@@ -57,6 +70,9 @@ isDriveMounted = Reader.ask @MountDriveConfig >>= send . IsDriveMounted
 
 isDriveConnected :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es Bool
 isDriveConnected = Reader.ask @MountDriveConfig >>= send . IsDriveConnected
+
+fsckRepair :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
+fsckRepair = Reader.ask @MountDriveConfig >>= send . FsckRepair
 
 runMountDrive
   :: (Error.HasCallStack, IOE :> es, Secrets :> es, Command :> es, Error CommandError :> es)
@@ -72,6 +88,28 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
     case exitCode of
       ExitSuccess -> pure True
       _ -> pure False
+  LuksOpen config ->
+    case config.mountingMode of
+      MountWithoutEncryption -> pure ()
+      MountWithPartitionLuks -> do
+        encryptionSecret <- Secrets.getSecret "DISK_ENCRYPTION_SECRET"
+        Command.runSudoProcessThrowOnError
+          "cryptsetup"
+          [ "open"
+          , config.drivePath
+          , Text.unpack config.driveName
+          ]
+          (Text.unpack $ encryptionSecret.value)
+  LuksClose config ->
+    case config.mountingMode of
+      MountWithoutEncryption -> pure ()
+      MountWithPartitionLuks -> do
+        Command.runSudoProcessThrowOnError
+          "cryptsetup"
+          [ "close"
+          , driveUuidMapperPath config.driveName
+          ]
+          ""
   Mount config ->
     case config.mountingMode of
       MountWithoutEncryption -> do
@@ -83,15 +121,6 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
           ]
           ""
       MountWithPartitionLuks -> do
-        encryptionSecret <- Secrets.getSecret "DISK_ENCRYPTION_SECRET"
-        Command.runSudoProcessThrowOnError
-          "cryptsetup"
-          [ "open"
-          , config.drivePath
-          , Text.unpack config.driveName
-          ]
-          (Text.unpack $ encryptionSecret.value)
-
         Command.runSudoProcessThrowOnError
           "mount"
           [ "--mkdir"
@@ -111,12 +140,13 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
           "umount"
           [driveUuidMapperPath config.driveName]
           ""
-
+  FsckRepair config ->
+    case config.fsck of
+      DoNotFsck -> pure ()
+      FsckRepairExfat ->
         Command.runSudoProcessThrowOnError
-          "cryptsetup"
-          [ "close"
-          , driveUuidMapperPath config.driveName
-          ]
+          "fsck.exfat"
+          ["--repair-yes", config.drivePath]
           ""
 
 tryMounting :: (Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
@@ -124,7 +154,10 @@ tryMounting = do
   connected <- isDriveConnected
   when connected $ do
     mounted <- isDriveMounted
-    unless mounted mount
+    unless mounted $ do
+      luksOpen
+      fsckRepair
+      mount
 
 -- | Waits until the disk is connected. When it is, it mounts it, and returns when the drive is
 -- successfully mounted
@@ -141,6 +174,16 @@ blockUntilDiskAvailable = do
       config <- Reader.ask @MountDriveConfig
       Concurrent.threadDelay $ config.pollDelayMs * 1000
       loopConnected
+
+-- | Unmount and luks close the disk
+closeDisk :: (Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
+closeDisk = do
+  connected <- isDriveConnected
+  when connected $ do
+    mounted <- isDriveMounted
+    when mounted $ do
+      unmount
+      luksClose
 
 -- | Waits until the drive is disconnected, i.e. no longer visible to the system.
 blockUntilDiskGone
