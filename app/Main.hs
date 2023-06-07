@@ -28,12 +28,12 @@ main = runEffects $ do
   Logger.displayInfo config
   Logger.logInfo ""
 
-  -- Create the database and tables
-  MostRecentBackup.migrateTables config.state
-
   -- Mount any configured drives
   forM_ config.mountBackupDrive $ \backupDriveConfig ->
     Reader.runReader backupDriveConfig blockUntilDiskAvailable
+
+  -- Create the database and tables
+  MostRecentBackup.migrateTables config.state
 
   -- Run perioic rsync backups
   rsyncAsyncs <- forM config.rsyncBackups $ \periodicRsyncBackupConfig ->
