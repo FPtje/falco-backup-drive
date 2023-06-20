@@ -29,6 +29,7 @@ import Config.Drive (FsckMode (..), MountDriveConfig (..), MountingMode (..))
 import Control.Monad (unless, when)
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Display (Display (..))
 import Effectful (Dispatch (Dynamic), DispatchOf, Eff, Effect, IOE, (:>))
 import Effectful.Concurrent (Concurrent)
 import Effectful.Concurrent qualified as Concurrent
@@ -38,6 +39,7 @@ import Effectful.Error.Static qualified as Error
 import Effectful.FileSystem qualified as FileSystem
 import Effectful.Reader.Static (Reader)
 import Effectful.Reader.Static qualified as Reader
+import Logger (Logger, displayError)
 import Secrets (Secrets)
 import Secrets qualified
 import System.Exit (ExitCode (..))
@@ -49,7 +51,7 @@ data MountDrive :: Effect where
   LuksClose :: MountDriveConfig -> MountDrive m ()
   Mount :: MountDriveConfig -> MountDrive m ()
   Unmount :: MountDriveConfig -> MountDrive m ()
-  FsckRepair :: MountDriveConfig -> MountDrive m ()
+  FsckRepair :: MountDriveConfig -> MountDrive m ExitCode
 
 type instance DispatchOf MountDrive = Dynamic
 
@@ -71,11 +73,17 @@ isDriveMounted = Reader.ask @MountDriveConfig >>= send . IsDriveMounted
 isDriveConnected :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es Bool
 isDriveConnected = Reader.ask @MountDriveConfig >>= send . IsDriveConnected
 
-fsckRepair :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
+fsckRepair :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ExitCode
 fsckRepair = Reader.ask @MountDriveConfig >>= send . FsckRepair
 
 runMountDrive
-  :: (Error.HasCallStack, IOE :> es, Secrets :> es, Command :> es, Error CommandError :> es)
+  :: ( Error.HasCallStack
+     , IOE :> es
+     , Secrets :> es
+     , Command :> es
+     , Logger :> es
+     , Error CommandError :> es
+     )
   => Eff (MountDrive : es) a
   -> Eff es a
 runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
@@ -142,12 +150,27 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
           ""
   FsckRepair config ->
     case config.fsck of
-      DoNotFsck -> pure ()
-      FsckRepairExfat ->
-        Command.runSudoProcessThrowOnError
-          "fsck.exfat"
-          ["--repair-yes", config.drivePath]
-          ""
+      DoNotFsck -> pure ExitSuccess
+      FsckRepairExfat -> do
+        (exitCode, stdout, stderr) <-
+          Command.runSudoProcess
+            "fsck.exfat"
+            ["--repair-yes", config.drivePath]
+            ""
+
+        case exitCode of
+          ExitSuccess -> pure ()
+          ExitFailure code -> do
+            displayError $
+              "fsck.exfat errored with code "
+                <> display code
+                <> "\nstdout:\n"
+                <> display stdout
+                <> "\nstderr:\n"
+                <> display stderr
+            pure ()
+
+        pure exitCode
 
 tryMounting :: (Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
 tryMounting = do
@@ -156,7 +179,7 @@ tryMounting = do
     mounted <- isDriveMounted
     unless mounted $ do
       luksOpen
-      fsckRepair
+      _exitCode <- fsckRepair
       mount
 
 -- | Waits until the disk is connected. When it is, it mounts it, and returns when the drive is

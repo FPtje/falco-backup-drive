@@ -102,6 +102,18 @@ runSudoProcessThrowOnError executable args stdin = do
     Nothing -> Error.throwError $ CommandDoesNotExist executable
     Just executablePath -> runProcessThrowOnError "sudo" (executablePath : args) stdin
 
+runSudoProcess
+  :: (Error.HasCallStack, Command :> es, Error CommandError :> es)
+  => String
+  -> [String]
+  -> String
+  -> Eff es (ExitCode, String, String)
+runSudoProcess executable args stdin = do
+  mbExecutablePath <- unsafeEff_ $ findExecutable executable
+  case mbExecutablePath of
+    Nothing -> Error.throwError $ CommandDoesNotExist executable
+    Just executablePath -> readProcessWithExitCode "sudo" (executablePath : args) stdin
+
 readProcessWithExitCode
   :: (Error.HasCallStack, Command :> es, Error CommandError :> es)
   => String
