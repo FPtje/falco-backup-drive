@@ -70,7 +70,7 @@ newtype instance StaticRep Command = Command ()
 
 type instance DispatchOf Command = Static WithSideEffects
 
-runCommand :: IOE :> es => Eff (Command : es) a -> Eff es a
+runCommand :: (Error.HasCallStack, IOE :> es) => Eff (Command : es) a -> Eff es a
 runCommand = evalStaticRep $ Command ()
 
 runProcessThrowOnError

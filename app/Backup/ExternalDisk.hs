@@ -80,7 +80,14 @@ instance Display Trace where
         "Waiting until disk has disappeared"
 
 runExternalDiskBackup
-  :: (MountDrive :> es, RSync :> es, Concurrent :> es, Logger :> es, Command :> es, Error CommandError :> es)
+  :: ( Error.HasCallStack
+     , MountDrive :> es
+     , RSync :> es
+     , Concurrent :> es
+     , Logger :> es
+     , Command :> es
+     , Error CommandError :> es
+     )
   => Eff (ExternalDiskBackup : es) a
   -> Eff es a
 runExternalDiskBackup = interpret $ \_ -> \case
@@ -111,7 +118,13 @@ runExternalDiskBackup = interpret $ \_ -> \case
 -- | Waits for a disk to appear, mounts it, backs up a directory, unmounts the disk again, waits
 -- until the disk is gone, and then repeats the process
 loop
-  :: (ExternalDiskBackup :> es, MountDrive :> es, Logger :> es, Concurrent :> es, Error CommandError :> es)
+  :: ( Error.HasCallStack
+     , ExternalDiskBackup :> es
+     , MountDrive :> es
+     , Logger :> es
+     , Concurrent :> es
+     , Error CommandError :> es
+     )
   => ExternalDiskBackupConfig
   -> Eff es ()
 loop config =

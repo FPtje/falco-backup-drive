@@ -29,6 +29,7 @@ import Database.Persist.Sqlite qualified as Persist
 import Database.Persist.TH (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings)
 import Effectful (Eff, Effect, IOE, (:>))
 import Effectful.Dispatch.Dynamic (interpret)
+import Effectful.Error.Static qualified as Error
 import Effectful.Persistent.SqliteEffect (Sqlite)
 import Effectful.Persistent.SqliteEffect qualified as Sqlite
 import Effectful.TH (makeEffect)
@@ -50,7 +51,7 @@ data MostRecentBackupState :: Effect where
 makeEffect ''MostRecentBackupState
 
 runMostRecentBackupStateSqlite
-  :: (IOE :> es, Sqlite :> es)
+  :: (Error.HasCallStack, IOE :> es, Sqlite :> es)
   => Eff (MostRecentBackupState : es) a
   -> Eff es a
 runMostRecentBackupStateSqlite = interpret $ \_ -> \case
@@ -67,7 +68,7 @@ runMostRecentBackupStateSqlite = interpret $ \_ -> \case
     pure $ fmap E.unValue mostRecentTime
 
 -- | Run the sqlite table migration
-migrateTables :: (IOE :> es, Sqlite :> es) => StateConfig -> Eff es ()
+migrateTables :: (Error.HasCallStack, IOE :> es, Sqlite :> es) => StateConfig -> Eff es ()
 migrateTables stateConfig =
   Sqlite.runSqlite stateConfig.sqliteFilePath $
     Persist.runMigration migrateMostRecentBackup

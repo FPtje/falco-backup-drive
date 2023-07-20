@@ -172,7 +172,7 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
 
         pure exitCode
 
-tryMounting :: (Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
+tryMounting :: (Error.HasCallStack, Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
 tryMounting = do
   connected <- isDriveConnected
   when connected $ do
@@ -185,7 +185,7 @@ tryMounting = do
 -- | Waits until the disk is connected. When it is, it mounts it, and returns when the drive is
 -- successfully mounted
 blockUntilDiskAvailable
-  :: (Reader MountDriveConfig :> es, Concurrent :> es, MountDrive :> es)
+  :: (Error.HasCallStack, Reader MountDriveConfig :> es, Concurrent :> es, MountDrive :> es)
   => Eff es ()
 blockUntilDiskAvailable = do
   loopConnected
@@ -199,7 +199,7 @@ blockUntilDiskAvailable = do
       loopConnected
 
 -- | Unmount and luks close the disk
-closeDisk :: (Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
+closeDisk :: (Error.HasCallStack, Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
 closeDisk = do
   connected <- isDriveConnected
   when connected $ do
@@ -210,7 +210,7 @@ closeDisk = do
 
 -- | Waits until the drive is disconnected, i.e. no longer visible to the system.
 blockUntilDiskGone
-  :: (Reader MountDriveConfig :> es, Concurrent :> es, MountDrive :> es)
+  :: (Error.HasCallStack, Reader MountDriveConfig :> es, Concurrent :> es, MountDrive :> es)
   => Eff es ()
 blockUntilDiskGone = do
   connected <- isDriveConnected

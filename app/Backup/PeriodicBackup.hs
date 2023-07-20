@@ -16,6 +16,7 @@ import Effectful (Eff, Effect, (:>))
 import Effectful.Concurrent (Concurrent)
 import Effectful.Concurrent qualified as Concurrent
 import Effectful.Dispatch.Dynamic (interpret)
+import Effectful.Error.Static qualified as Error
 import Effectful.TH (makeEffect)
 import Effectful.Time (Time, getCurrentTime)
 import Effectful.Time qualified as Time
@@ -34,7 +35,9 @@ makeEffect ''PeriodicBackup
 
 -- | Run periodic backup effect
 runPeriodicBackup
-  :: (MostRecentBackupState :> es, Time :> es) => Eff (PeriodicBackup : es) a -> Eff es a
+  :: (Error.HasCallStack, MostRecentBackupState :> es, Time :> es)
+  => Eff (PeriodicBackup : es) a
+  -> Eff es a
 runPeriodicBackup = interpret $ \_ -> \case
   GetNextTimeToBackup stateConfig config -> do
     mbMostRecentBackup <- getMostRecentBackup stateConfig config.scheduleIdentifier
@@ -47,7 +50,13 @@ runPeriodicBackup = interpret $ \_ -> \case
           else pure $ RunIn $ diffUTCTime (addUTCTime config.backupInterval mostRecentBackup) time
 
 loopPeriodicBackup
-  :: (MostRecentBackupState :> es, Concurrent :> es, PeriodicBackup :> es, Time :> es, Logger :> es)
+  :: ( Error.HasCallStack
+     , MostRecentBackupState :> es
+     , Concurrent :> es
+     , PeriodicBackup :> es
+     , Time :> es
+     , Logger :> es
+     )
   => StateConfig
   -> PeriodicBackupConfig config
   -> Eff es ()

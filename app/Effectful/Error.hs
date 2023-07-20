@@ -17,7 +17,7 @@ import System.Exit (exitFailure)
 -- | Run an effect, and on failure, print the error and exit with failure
 runFailOnError
   :: forall e es a
-   . (IOE :> es, Logger :> es, Display e)
+   . (Error.HasCallStack, IOE :> es, Logger :> es, Display e)
   => Eff (Error e : es) a
   -> Eff es a
 runFailOnError eff = do

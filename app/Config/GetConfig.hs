@@ -11,6 +11,7 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Effectful (Eff, Effect, IOE, (:>))
 import Effectful.Dispatch.Dynamic (interpret)
+import Effectful.Error.Static qualified as Error
 import Effectful.TH (makeEffect)
 
 data GetConfig :: Effect where
@@ -19,7 +20,7 @@ data GetConfig :: Effect where
 
 makeEffect ''GetConfig
 
-runGetConfig :: IOE :> es => Eff (GetConfig : es) a -> Eff es a
+runGetConfig :: (Error.HasCallStack, IOE :> es) => Eff (GetConfig : es) a -> Eff es a
 runGetConfig = interpret $ \_ -> \case
   ReadConfig -> do
     fileContents <- liftIO $ BS.readFile "config.json"

@@ -16,6 +16,7 @@ import Data.Text (Text)
 import Database.Persist.Sqlite qualified as Persist
 import Effectful (Eff, Effect, IOE, (:>))
 import Effectful.Dispatch.Dynamic (interpret, localSeqUnliftIO)
+import Effectful.Error.Static qualified as Error
 import Effectful.TH (makeEffect)
 
 -- | An effect that represents a subset of the functions in persistent-sqlite. Persistent is coupled
@@ -26,7 +27,7 @@ data Sqlite :: Effect where
 
 makeEffect ''Sqlite
 
-runSqliteIO :: IOE :> es => Eff (Sqlite : es) a -> Eff es a
+runSqliteIO :: (Error.HasCallStack, IOE :> es) => Eff (Sqlite : es) a -> Eff es a
 runSqliteIO = interpret $ \env -> \case
   RunSqlite connectionString m ->
     localSeqUnliftIO env $ \unlift ->

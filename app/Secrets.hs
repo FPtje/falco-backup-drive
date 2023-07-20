@@ -48,7 +48,10 @@ data Secrets :: Effect where
 makeEffect ''Secrets
 
 -- | Simple interpreter that just reads from an environment variable
-runSecrets :: (Error SecretError :> es, Environment :> es) => Eff (Secrets : es) a -> Eff es a
+runSecrets
+  :: (Error.HasCallStack, Error SecretError :> es, Environment :> es)
+  => Eff (Secrets : es) a
+  -> Eff es a
 runSecrets = interpret $ \_ -> \case
   GetSecret secretPath -> do
     mbSecret <- Environment.lookupEnv secretPath.path

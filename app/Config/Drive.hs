@@ -5,7 +5,7 @@
 module Config.Drive (
   MountDriveConfig (..),
   MountingMode (..),
-  FsckMode (..)
+  FsckMode (..),
 ) where
 
 import Data.Aeson (FromJSON, ToJSON)
