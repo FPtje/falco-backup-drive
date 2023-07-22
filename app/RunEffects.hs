@@ -22,6 +22,7 @@ import Effectful.Concurrent qualified as Concurrent
 import Effectful.Environment qualified as Environment
 import Effectful.Error qualified as Error
 import Effectful.Persistent.SqliteEffect qualified as Sqlite
+import Effectful.Shutdown qualified as Shutdown
 import Effectful.Time qualified as Time
 import Logger qualified
 import Secrets qualified
@@ -50,3 +51,4 @@ runEffects =
     . ExternalDiskBackup.runExternalDiskBackup
     . Time.runCurrentTime
     . PeriodicBackup.runPeriodicBackup
+    . Shutdown.runOnShutdown

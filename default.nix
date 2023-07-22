@@ -8,7 +8,7 @@
 , rsync
 }:
 let
-  src = lib.cleanSourceWith rec {
+  src = lib.cleanSourceWith {
     name = "falco-backup-drive-src";
     src = ./.;
     filter = path: type:

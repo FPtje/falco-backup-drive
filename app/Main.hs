@@ -14,9 +14,11 @@ import Control.Monad (forM, forM_, unless)
 import Data.Functor (void)
 import Drive.MountDrive (
   blockUntilDiskAvailable,
+  closeDisk,
  )
 import Effectful.Concurrent.Async qualified as Concurrent
 import Effectful.Reader.Static qualified as Reader
+import Effectful.Shutdown (onShutdown)
 import Logger qualified
 import RunEffects (runEffects)
 import State.MostRecentBackup qualified as MostRecentBackup
@@ -30,7 +32,11 @@ main = runEffects $ do
 
   -- Mount any configured drives
   forM_ config.mountBackupDrive $ \backupDriveConfig ->
-    Reader.runReader backupDriveConfig blockUntilDiskAvailable
+    Reader.runReader backupDriveConfig $ do
+      -- Install handler to the disk on program shutdown
+      onShutdown $ runEffects $ Reader.runReader backupDriveConfig closeDisk
+      -- Wait until it is available
+      blockUntilDiskAvailable
 
   -- Create the database and tables
   MostRecentBackup.migrateTables config.state

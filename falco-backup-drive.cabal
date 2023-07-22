@@ -33,6 +33,7 @@ executable falco-backup-drive
     Drive.MountDrive
     Effectful.Error
     Effectful.Persistent.SqliteEffect
+    Effectful.Shutdown
     Effectful.Time
     Logger
     RunEffects
@@ -59,6 +60,7 @@ executable falco-backup-drive
     , resourcet
     , text
     , time
+    , unix
 
   hs-source-dirs:   app
   default-language: GHC2021
