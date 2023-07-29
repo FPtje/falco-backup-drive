@@ -33,7 +33,6 @@ executable falco-backup-drive
     Drive.MountDrive
     Effectful.Error
     Effectful.Persistent.SqliteEffect
-    Effectful.Shutdown
     Effectful.Time
     Logger
     RunEffects
