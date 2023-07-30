@@ -30,7 +30,7 @@
         buildInputs = [
           cabal-install
           cabal-fmt
-          fourmolu
+          fourmolu_0_13_0_0
           haskell-language-server
         ] ++ pkgs.falcoBackupDrivePkgs.haskellPackages.falco-backup-drive.runtimeInputs;
       };

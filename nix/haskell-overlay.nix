@@ -5,5 +5,5 @@ final: previous:
 
   conferer = haskell.lib.doJailbreak previous.conferer;
   postgresql-simple = haskell.lib.doJailbreak previous.postgresql-simple;
-  persistent = haskell.lib.doJailbreak previous.persistent;
+  persistent = haskell.lib.doJailbreak previous.persistent_2_14_5_0;
 }
