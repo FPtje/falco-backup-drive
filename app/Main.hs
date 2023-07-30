@@ -35,7 +35,7 @@ main = runEffects $ do
   -- Create the database and tables
   MostRecentBackup.migrateTables config.state
 
-  -- Run perioic rsync backups
+  -- Run periodic rsync backups
   rsyncAsyncs <- forM config.rsyncBackups $ \periodicRsyncBackupConfig ->
     Concurrent.async $
       PeriodicBackup.loopPeriodicBackup config.state periodicRsyncBackupConfig $
