@@ -47,6 +47,7 @@ share
 data MostRecentBackupState :: Effect where
   StoreBackupTime :: StateConfig -> BackupName -> UTCTime -> MostRecentBackupState m ()
   GetMostRecentBackup :: StateConfig -> BackupName -> MostRecentBackupState m (Maybe UTCTime)
+  MigrateTables :: StateConfig -> MostRecentBackupState m ()
 
 makeEffect ''MostRecentBackupState
 
@@ -66,12 +67,9 @@ runMostRecentBackupStateSqlite = interpret $ \_ -> \case
         E.selectOne $
           mostRecentBackupQuery backupName.name
     pure $ fmap E.unValue mostRecentTime
-
--- | Run the sqlite table migration
-migrateTables :: (Error.HasCallStack, IOE :> es, Sqlite :> es) => StateConfig -> Eff es ()
-migrateTables stateConfig =
-  Sqlite.runSqlite stateConfig.sqliteFilePath $
-    Persist.runMigration migrateMostRecentBackup
+  MigrateTables stateConfig ->
+    Sqlite.runSqlite stateConfig.sqliteFilePath $
+      Persist.runMigration migrateMostRecentBackup
 
 mostRecentBackupQuery :: Text -> E.SqlQuery (E.SqlExpr (E.Value UTCTime))
 mostRecentBackupQuery backupName = do

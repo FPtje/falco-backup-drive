@@ -1,5 +1,4 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
+{-# LANGUAGE DataKinds #-}
 
 -- | Contains a functions that run all the effects. This function is placed in a separate module due
 -- to the use of the PartialTypeSignatures language extension. Enabling that language extension
@@ -15,10 +14,11 @@ import Command (CommandError)
 import Command qualified
 import Config.GetConfig qualified as Config
 import Drive.MountDrive qualified as MountDrive
-import Effectful (Eff, runEff)
+import Effectful (Eff, inject, runEff)
 import Effectful.Concurrent qualified as Concurrent
 import Effectful.Environment qualified as Environment
 import Effectful.Error qualified as Error
+import Effectful.Error.Static (Error)
 import Effectful.Persistent.SqliteEffect qualified as Sqlite
 import Effectful.Time qualified as Time
 import Logger qualified
@@ -30,7 +30,27 @@ import State.MostRecentBackup qualified as MostRecentBackup
 -- this list is a pretty easy job for the compiler, let's trust it to do just that.
 --
 -- This function is also useful for repl use.
-runEffects :: Eff _listOfAllEffects a -> IO a
+runEffects
+  :: Eff
+      [ PeriodicBackup.PeriodicBackup
+      , Time.Time
+      , ExternalDiskBackup.ExternalDiskBackup
+      , MostRecentBackup.MostRecentBackupState
+      , RSync.RSync
+      , MountDrive.MountDrive
+      , Secrets.Secrets
+      , Sqlite.Sqlite
+      , Command.Command
+      , Error Secrets.SecretError
+      , Error CommandError
+      , Concurrent.Concurrent
+      , Environment.Environment
+      , Config.GetConfig
+      , Logger.Logger
+      -- , IOE -- hidden by 'inject'
+      ]
+      a
+  -> IO a
 runEffects =
   runEff
     . Logger.logStdout
@@ -48,3 +68,4 @@ runEffects =
     . ExternalDiskBackup.runExternalDiskBackup
     . Time.runCurrentTime
     . PeriodicBackup.runPeriodicBackup
+    . inject
