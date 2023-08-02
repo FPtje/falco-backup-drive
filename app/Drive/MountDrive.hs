@@ -67,13 +67,16 @@ unmount = Reader.ask @MountDriveConfig >>= send . Unmount
 mount :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
 mount = Reader.ask @MountDriveConfig >>= send . Mount
 
-isDriveMounted :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es Bool
+isDriveMounted
+  :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es Bool
 isDriveMounted = Reader.ask @MountDriveConfig >>= send . IsDriveMounted
 
-isDriveConnected :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es Bool
+isDriveConnected
+  :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es Bool
 isDriveConnected = Reader.ask @MountDriveConfig >>= send . IsDriveConnected
 
-fsckRepair :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ExitCode
+fsckRepair
+  :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ExitCode
 fsckRepair = Reader.ask @MountDriveConfig >>= send . FsckRepair
 
 runMountDrive

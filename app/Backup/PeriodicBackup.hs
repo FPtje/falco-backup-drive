@@ -29,7 +29,8 @@ data TimeToNextBackup
   | RunIn NominalDiffTime
 
 data PeriodicBackup :: Effect where
-  GetNextTimeToBackup :: StateConfig -> PeriodicBackupConfig config -> PeriodicBackup m TimeToNextBackup
+  GetNextTimeToBackup
+    :: StateConfig -> PeriodicBackupConfig config -> PeriodicBackup m TimeToNextBackup
 
 makeEffect ''PeriodicBackup
 
