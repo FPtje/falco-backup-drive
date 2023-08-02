@@ -14,9 +14,7 @@ import Backup.RSync qualified as RSync
 import Command (CommandError)
 import Command qualified
 import Config.GetConfig qualified as Config
-import Drive.MountDrive (
-  runMountDrive,
- )
+import Drive.MountDrive qualified as MountDrive
 import Effectful (Eff, runEff)
 import Effectful.Concurrent qualified as Concurrent
 import Effectful.Environment qualified as Environment
@@ -44,7 +42,7 @@ runEffects =
     . Command.runCommand
     . Sqlite.runSqliteIO
     . Secrets.runSecrets
-    . runMountDrive
+    . MountDrive.runMountDrive
     . RSync.runRSync
     . MostRecentBackup.runMostRecentBackupStateSqlite
     . ExternalDiskBackup.runExternalDiskBackup
