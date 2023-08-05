@@ -15,6 +15,7 @@ module Drive.MountDrive (
   mount,
   unmount,
   fsckRepair,
+  formatExfat,
   runMountDrive,
   tryMounting,
   blockUntilDiskAvailable,
@@ -52,6 +53,7 @@ data MountDrive :: Effect where
   Mount :: MountDriveConfig -> MountDrive m ()
   Unmount :: MountDriveConfig -> MountDrive m ()
   FsckRepair :: MountDriveConfig -> MountDrive m ExitCode
+  FormatExfat :: MountDriveConfig -> MountDrive m ()
 
 type instance DispatchOf MountDrive = Dynamic
 
@@ -66,6 +68,9 @@ unmount = Reader.ask @MountDriveConfig >>= send . Unmount
 
 mount :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
 mount = Reader.ask @MountDriveConfig >>= send . Mount
+
+formatExfat :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
+formatExfat = Reader.ask @MountDriveConfig >>= send . FormatExfat
 
 isDriveMounted
   :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es Bool
@@ -174,6 +179,13 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
             pure ()
 
         pure exitCode
+  FormatExfat config ->
+    Command.runSudoProcessThrowOnError
+      "mkfs.exfat"
+      [ "--volume-label=" <> Text.unpack config.driveName
+      , config.drivePath
+      ]
+      ""
 
 tryMounting :: (Error.HasCallStack, Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
 tryMounting = do

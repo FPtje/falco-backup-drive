@@ -9,12 +9,10 @@ module Backup.ExternalDisk (ExternalDiskBackup, run, runExternalDiskBackup, loop
 
 import Backup.RSync (RSync)
 import Backup.RSync qualified as RSync
-import Command (Command, CommandError)
-import Command qualified
+import Command (CommandError)
 import Config.Backup.ExternalDisk (ExternalDiskBackupConfig (..), FormatOption (..))
 import Config.Backup.Rsync (RsyncBackupConfig (..))
 import Config.Drive (MountDriveConfig (..))
-import Data.Text qualified as Text
 import Display (Display (..))
 import Drive.MountDrive (MountDrive)
 import Drive.MountDrive qualified as MountDrive
@@ -85,8 +83,6 @@ runExternalDiskBackup
      , RSync :> es
      , Concurrent :> es
      , Logger :> es
-     , Command :> es
-     , Error CommandError :> es
      )
   => Eff (ExternalDiskBackup : es) a
   -> Eff es a
@@ -107,12 +103,7 @@ runExternalDiskBackup = interpret $ \_ -> \case
         DoNotFormat -> pure ()
         FormatExfat -> do
           trace config FormattingDrive
-          Command.runSudoProcessThrowOnError
-            "mkfs.exfat"
-            [ "--volume-label=" <> Text.unpack config.mountConfig.driveName
-            , config.mountConfig.drivePath
-            ]
-            ""
+          MountDrive.formatExfat
           trace config FormattingComplete
 
 -- | Waits for a disk to appear, mounts it, backs up a directory, unmounts the disk again, waits
