@@ -63,3 +63,4 @@ executable falco-backup-drive
 
   hs-source-dirs:   app
   default-language: GHC2021
+  ghc-options: -rtsopts -threaded
