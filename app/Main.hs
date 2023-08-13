@@ -27,13 +27,17 @@ main = runEffects $ do
   Logger.logInfo ""
 
   -- Mount any configured drives
-  forM_ config.mountBackupDrive $ \backupDriveConfig ->
+  forM_ config.mountBackupDrive $ \backupDriveConfig -> do
+    Logger.logTrace "Waiting for backup drive to become available"
     Reader.runReader backupDriveConfig $ do
       -- Wait until it is available
       blockUntilDiskAvailable
 
+  Logger.logTrace "Migrating database tables"
   -- Create the database and tables
   MostRecentBackup.migrateTables config.state
+
+  Logger.logTrace "Startup complete"
 
   -- Run periodic rsync backups
   rsyncAsyncs <- forM config.rsyncBackups $ \periodicRsyncBackupConfig ->
