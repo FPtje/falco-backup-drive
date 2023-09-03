@@ -217,11 +217,13 @@ blockUntilDiskAvailable = do
 closeDisk :: (Error.HasCallStack, Reader MountDriveConfig :> es, MountDrive :> es) => Eff es ()
 closeDisk = do
   connected <- isDriveConnected
-  when connected $ do
-    mounted <- isDriveMounted
-    when mounted $ do
-      unmount
-      luksClose
+  mounted <- isDriveMounted
+  -- After some error cases, a drive can be mounted, but not actually connected! This will unmount
+  -- the directory.
+  when mounted $
+    unmount
+  when connected $
+    luksClose
 
 -- | Waits until the drive is disconnected, i.e. no longer visible to the system.
 blockUntilDiskGone
