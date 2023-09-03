@@ -57,10 +57,11 @@ executable falco-backup-drive
     , persistent-template
     , process
     , resourcet
+    , safe-exceptions
     , text
     , time
     , unix
 
   hs-source-dirs:   app
   default-language: GHC2021
-  ghc-options: -rtsopts -threaded
+  ghc-options:      -rtsopts -threaded

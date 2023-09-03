@@ -26,6 +26,7 @@ import Effectful.Reader.Static qualified as Reader
 import Effectful.TH (makeEffect)
 import Logger (Logger)
 import Logger qualified
+import Control.Exception.Safe (finally)
 
 -- | Waits for the a disk to appear, mounts it, backs up a directory, and then unmounts the disk
 -- again
@@ -92,12 +93,17 @@ runExternalDiskBackup = interpret $ \_ -> \case
       trace config WaitingForDisk
       MountDrive.blockUntilDiskAvailable
 
-      trace config StartingBackup
-      RSync.run config.rsyncConfig
-      trace config BackupComplete
+      let
+        runBackup = do
+          trace config StartingBackup
+          RSync.run config.rsyncConfig
+          trace config BackupComplete
 
-      MountDrive.closeDisk
-      trace config UnmountComplete
+        closeDisk = do
+          MountDrive.closeDisk
+          trace config UnmountComplete
+
+      runBackup `finally` closeDisk
 
       case config.formatAfterBackup of
         DoNotFormat -> pure ()
