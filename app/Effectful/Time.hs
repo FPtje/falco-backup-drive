@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- |
@@ -15,6 +16,7 @@ module Effectful.Time (
   -- * Time Effect
   Time (..),
   getCurrentTime,
+  getCurrentZonedTime,
 
   -- * Runners
   runCurrentTime,
@@ -22,7 +24,7 @@ module Effectful.Time (
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Kind (Type)
-import Data.Time (UTCTime)
+import Data.Time (UTCTime, ZonedTime)
 import Data.Time qualified as T
 import Effectful (
   Dispatch (Dynamic),
@@ -37,6 +39,7 @@ import Effectful.Dispatch.Dynamic (interpret, send)
 -- | An effect for getting the current time
 data Time :: Effect where
   CurrentTime :: Time m UTCTime
+  CurrentZonedTime :: Time m ZonedTime
 
 type instance DispatchOf Time = 'Dynamic
 
@@ -47,10 +50,18 @@ getCurrentTime
   => Eff es UTCTime
 getCurrentTime = send CurrentTime
 
+getCurrentZonedTime
+  :: forall (es :: [Effect])
+   . Time :> es
+  => Eff es ZonedTime
+getCurrentZonedTime = send CurrentZonedTime
+
 -- | Run time in IO
 runCurrentTime
   :: forall (es :: [Effect]) (a :: Type)
    . IOE :> es
   => Eff (Time : es) a
   -> Eff es a
-runCurrentTime = interpret $ \_ CurrentTime -> liftIO T.getCurrentTime
+runCurrentTime = interpret $ \_ -> \case
+  CurrentTime -> liftIO T.getCurrentTime
+  CurrentZonedTime -> liftIO T.getZonedTime

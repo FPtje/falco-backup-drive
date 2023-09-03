@@ -14,7 +14,7 @@ import Config.Backup.PeriodicBackup (
   formatBackupTime,
  )
 import Config.State (StateConfig)
-import Data.Time (NominalDiffTime, addUTCTime, diffUTCTime)
+import Data.Time (NominalDiffTime, addLocalTime, addUTCTime, diffUTCTime, zonedTimeToLocalTime)
 import Display (Display (..))
 import Effectful (Eff, Effect, (:>))
 import Effectful.Concurrent (Concurrent)
@@ -70,23 +70,27 @@ loopPeriodicBackup stateConfig config runBackup = go
  where
   go = do
     nextBackup <- getNextTimeToBackup stateConfig config
-    timeBeforeBackup <- Time.getCurrentTime
+    currentZonedTime <- Time.getCurrentZonedTime
     case nextBackup of
       RunAsap ->
         Logger.displayInfo $
           "Running backup " <> display config.scheduleIdentifier <> " immediately"
       RunIn delay -> do
         let
-          backupAt = addUTCTime delay timeBeforeBackup
+          backupAt =
+            currentZonedTime
+              { zonedTimeToLocalTime = addLocalTime delay currentZonedTime.zonedTimeToLocalTime
+              }
         Logger.displayInfo $
           "Running backup "
             <> display config.scheduleIdentifier
             <> " after a delay of "
             <> display (formatBackupInterval delay)
-            <> " at some point after "
+            <> ", at "
             <> display (formatBackupTime backupAt)
         Concurrent.threadDelay $ truncate $ delay * 1000000
 
+    timeBeforeBackup <- Time.getCurrentTime
     runBackup
     storeBackupTime stateConfig config.scheduleIdentifier timeBeforeBackup
     go

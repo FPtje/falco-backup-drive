@@ -6,7 +6,7 @@ module Config.Backup.PeriodicBackup where
 
 import Config.State (BackupName)
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Time (NominalDiffTime, UTCTime)
+import Data.Time (NominalDiffTime, ZonedTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Data.Time.Format (defaultTimeLocale, formatTime)
 import Display (Display (..))
@@ -37,8 +37,8 @@ formatBackupInterval interval =
     $ posixSecondsToUTCTime
     $ realToFrac interval
 
--- | Helper to format a UTCTime for backup use
-formatBackupTime :: UTCTime -> String
+-- | Helper to format a 'ZonedTime' for backup use
+formatBackupTime :: ZonedTime -> String
 formatBackupTime time =
   formatTime
     defaultTimeLocale
