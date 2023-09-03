@@ -83,7 +83,7 @@ loopPeriodicBackup stateConfig config runBackup = go
             <> display config.scheduleIdentifier
             <> " after a delay of "
             <> display (formatBackupInterval delay)
-            <> "at some point after"
+            <> "at some point after "
             <> display (formatBackupTime backupAt)
         Concurrent.threadDelay $ truncate $ delay * 1000000
 
