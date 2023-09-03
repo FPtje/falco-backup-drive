@@ -13,6 +13,7 @@ import Command (CommandError)
 import Config.Backup.ExternalDisk (ExternalDiskBackupConfig (..), FormatOption (..))
 import Config.Backup.Rsync (RsyncBackupConfig (..))
 import Config.Drive (MountDriveConfig (..))
+import Control.Exception.Safe (finally)
 import Display (Display (..))
 import Drive.MountDrive (MountDrive)
 import Drive.MountDrive qualified as MountDrive
@@ -26,7 +27,6 @@ import Effectful.Reader.Static qualified as Reader
 import Effectful.TH (makeEffect)
 import Logger (Logger)
 import Logger qualified
-import Control.Exception.Safe (finally)
 
 -- | Waits for the a disk to appear, mounts it, backs up a directory, and then unmounts the disk
 -- again
