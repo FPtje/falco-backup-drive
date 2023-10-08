@@ -52,7 +52,7 @@ data MountDrive :: Effect where
   LuksClose :: MountDriveConfig -> MountDrive m ()
   Mount :: MountDriveConfig -> MountDrive m ()
   Unmount :: MountDriveConfig -> MountDrive m ()
-  FsckRepair :: MountDriveConfig -> MountDrive m ExitCode
+  FsckRepair :: MountDriveConfig -> MountDrive m ()
   FormatExfat :: MountDriveConfig -> MountDrive m ()
 
 type instance DispatchOf MountDrive = Dynamic
@@ -81,7 +81,7 @@ isDriveConnected
 isDriveConnected = Reader.ask @MountDriveConfig >>= send . IsDriveConnected
 
 fsckRepair
-  :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ExitCode
+  :: (Error.HasCallStack, MountDrive :> es, Reader MountDriveConfig :> es) => Eff es ()
 fsckRepair = Reader.ask @MountDriveConfig >>= send . FsckRepair
 
 runMountDrive
@@ -127,38 +127,21 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
           ]
           ""
   Mount config ->
-    case config.mountingMode of
-      MountWithoutEncryption -> do
-        Command.runSudoProcessThrowOnError
-          "mount"
-          [ "--mkdir"
-          , config.drivePath
-          , config.mountDirectory
-          ]
-          ""
-      MountWithPartitionLuks -> do
-        Command.runSudoProcessThrowOnError
-          "mount"
-          [ "--mkdir"
-          , driveUuidMapperPath config.driveName
-          , config.mountDirectory
-          ]
-          ""
+    Command.runSudoProcessThrowOnError
+      "mount"
+      [ "--mkdir"
+      , partitionPath config
+      , config.mountDirectory
+      ]
+      ""
   Unmount config ->
-    case config.mountingMode of
-      MountWithoutEncryption -> do
-        Command.runSudoProcessThrowOnError
-          "umount"
-          [config.drivePath]
-          ""
-      MountWithPartitionLuks -> do
-        Command.runSudoProcessThrowOnError
-          "umount"
-          [driveUuidMapperPath config.driveName]
-          ""
+    Command.runSudoProcessThrowOnError
+      "umount"
+      [partitionPath config]
+      ""
   FsckRepair config ->
     case config.fsck of
-      DoNotFsck -> pure ExitSuccess
+      DoNotFsck -> pure ()
       FsckRepairExfat -> do
         (exitCode, stdout, stderr) <-
           Command.runSudoProcess
@@ -176,9 +159,8 @@ runMountDrive = reinterpret FileSystem.runFileSystem $ \_ -> \case
                 <> display stdout
                 <> "\nstderr:\n"
                 <> display stderr
-            pure ()
-
-        pure exitCode
+      FsckBtrfsCheckNoRepair -> do
+        Command.runSudoProcessThrowOnError "btrfs" ["check", partitionPath config] ""
   FormatExfat config ->
     Command.runSudoProcessThrowOnError
       "mkfs.exfat"
@@ -239,3 +221,10 @@ blockUntilDiskGone = do
 driveUuidMapperPath :: Text -> FilePath
 driveUuidMapperPath name =
   "/dev/mapper/" ++ Text.unpack name
+
+-- | The path of the partition, takes into account whether the drive is encrypted.
+partitionPath :: MountDriveConfig -> FilePath
+partitionPath config =
+  case config.mountingMode of
+    MountWithoutEncryption -> config.drivePath
+    MountWithPartitionLuks -> driveUuidMapperPath config.driveName

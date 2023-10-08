@@ -48,8 +48,10 @@ instance Display MountingMode where
 data FsckMode
   = DoNotFsck
   | FsckRepairExfat
+  | FsckBtrfsCheckNoRepair
   deriving (Generic, FromJSON, ToJSON)
 
 instance Display FsckMode where
   display DoNotFsck = "not running fsck"
   display FsckRepairExfat = "running `fsck.exfat --repair-yes` before mount"
+  display FsckBtrfsCheckNoRepair = "running `btrfs check` before mount"
