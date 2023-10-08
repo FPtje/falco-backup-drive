@@ -22,6 +22,7 @@ executable falco-backup-drive
     Backup.ExternalDisk
     Backup.PeriodicBackup
     Backup.RSync
+    Cli
     Command
     Config.Backup.ExternalDisk
     Config.Backup.PeriodicBackup
@@ -42,7 +43,7 @@ executable falco-backup-drive
   -- other-extensions:
   build-depends:
     , aeson
-    , base                 ^>=4.18.0.0
+    , base                  ^>=4.18.0.0
     , bytestring
     , directory
     , display
@@ -52,6 +53,7 @@ executable falco-backup-drive
     , exceptions
     , monad-logger
     , mtl
+    , optparse-applicative
     , persistent
     , persistent-sqlite
     , persistent-template

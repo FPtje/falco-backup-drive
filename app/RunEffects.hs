@@ -10,6 +10,7 @@ module RunEffects where
 import Backup.ExternalDisk qualified as ExternalDiskBackup
 import Backup.PeriodicBackup qualified as PeriodicBackup
 import Backup.RSync qualified as RSync
+import Cli qualified
 import Command (CommandError)
 import Command qualified
 import Config.GetConfig qualified as Config
@@ -25,31 +26,33 @@ import Logger qualified
 import Secrets qualified
 import State.MostRecentBackup qualified as MostRecentBackup
 
+type TopLevelEffects =
+  [ PeriodicBackup.PeriodicBackup
+  , Time.Time
+  , ExternalDiskBackup.ExternalDiskBackup
+  , MostRecentBackup.MostRecentBackupState
+  , RSync.RSync
+  , MountDrive.MountDrive
+  , Secrets.Secrets
+  , Sqlite.Sqlite
+  , Command.Command
+  , Error Secrets.SecretError
+  , Error CommandError
+  , Concurrent.Concurrent
+  , Environment.Environment
+  , Config.GetConfig
+  , Logger.Logger
+  , Cli.Cli
+  -- , IOE -- hidden by 'inject'
+  ]
+
 -- | Runs all the effects in use by this program. The _listOfAllEffects is a type hole, because it
 -- would be annoying to maintain the type level list as well as the definition. Since figuring out
 -- this list is a pretty easy job for the compiler, let's trust it to do just that.
 --
 -- This function is also useful for repl use.
 runEffects
-  :: Eff
-      [ PeriodicBackup.PeriodicBackup
-      , Time.Time
-      , ExternalDiskBackup.ExternalDiskBackup
-      , MostRecentBackup.MostRecentBackupState
-      , RSync.RSync
-      , MountDrive.MountDrive
-      , Secrets.Secrets
-      , Sqlite.Sqlite
-      , Command.Command
-      , Error Secrets.SecretError
-      , Error CommandError
-      , Concurrent.Concurrent
-      , Environment.Environment
-      , Config.GetConfig
-      , Logger.Logger
-      -- , IOE -- hidden by 'inject'
-      ]
-      a
+  :: Eff TopLevelEffects a
   -> IO a
 runEffects =
   runEff
@@ -68,4 +71,5 @@ runEffects =
     . ExternalDiskBackup.runExternalDiskBackup
     . Time.runCurrentTime
     . PeriodicBackup.runPeriodicBackup
+    . Cli.runCliIO
     . inject
