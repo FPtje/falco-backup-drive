@@ -10,6 +10,7 @@ module Backup.RSync where
 import Command (Command, CommandError)
 import Command qualified
 import Config.Backup.Rsync (RsyncBackupConfig (..))
+import Data.Text qualified as Text
 import Display (Display (..))
 import Effectful (Dispatch (Dynamic), DispatchOf, Eff, Effect, IOE, (:>))
 import Effectful.Dispatch.Dynamic (reinterpret)
@@ -37,10 +38,12 @@ runRSync = reinterpret FileSystem.runFileSystem $ \_ -> \case
     Logger.displayInfo $ "Starting rsync backup " <> display config.backupName
     Command.runProcessThrowOnError
       "rsync"
-      [ "--archive"
-      , "--fsync"
-      , config.backupSource
-      , config.backupDestination
-      ]
+      ( [ "--archive"
+        , "--fsync"
+        , config.backupSource
+        , config.backupDestination
+        ]
+          <> map Text.unpack config.extraArgs
+      )
       ""
     Logger.displayInfo $ "Finished rsync backup " <> display config.backupName
